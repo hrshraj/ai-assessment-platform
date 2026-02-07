@@ -29,7 +29,7 @@ public class ProctorController {
 
     @PostMapping("/log")
     public ResponseEntity<?> logProctorEvent(@RequestBody ProctorRequest request) {
-        
+
         // 1. Validate the Submission exists
         Submission submission = submissionRepository.findById(String.valueOf(request.submissionId()))
                 .orElseThrow(() -> new RuntimeException("Invalid Submission ID"));
@@ -53,26 +53,26 @@ public class ProctorController {
     }
 
     @PostMapping("/batch-log")
-public ResponseEntity<?> logBatch(@RequestBody List<ProctorRequest> requests) {
-    // Save all logs in one DB transaction - efficient!
-    List<ProctorLog> logs = requests.stream()
-            .map(request -> {
-                Submission submission = submissionRepository.findById(String.valueOf(request.submissionId()))
-                        .orElseThrow(() -> new RuntimeException("Invalid Submission ID"));
-                ProctorLog log = ProctorLog.builder()
-                        .submission(submission)
-                        .timestamp(LocalDateTime.now())
-                        .logType(request.logType())
-                        .build();
-                if (request.logType() == ProctorLog.LogType.SNAPSHOT) {
-                    log.setSnapshotBase64(request.data());
-                } else {
-                    log.setActivityLogJson(request.data());
-                }
-                return log;
-            })
-            .toList();
-    proctorLogRepository.saveAll(logs);
-    return ResponseEntity.ok().build();
-}
+    public ResponseEntity<?> logBatch(@RequestBody List<ProctorRequest> requests) {
+        // Save all logs in one DB transaction - efficient!
+        List<ProctorLog> logs = requests.stream()
+                .map(request -> {
+                    Submission submission = submissionRepository.findById(String.valueOf(request.submissionId()))
+                            .orElseThrow(() -> new RuntimeException("Invalid Submission ID"));
+                    ProctorLog log = ProctorLog.builder()
+                            .submission(submission)
+                            .timestamp(LocalDateTime.now())
+                            .logType(request.logType())
+                            .build();
+                    if (request.logType() == ProctorLog.LogType.SNAPSHOT) {
+                        log.setSnapshotBase64(request.data());
+                    } else {
+                        log.setActivityLogJson(request.data());
+                    }
+                    return log;
+                })
+                .toList();
+        proctorLogRepository.saveAll(logs);
+        return ResponseEntity.ok().build();
+    }
 }
