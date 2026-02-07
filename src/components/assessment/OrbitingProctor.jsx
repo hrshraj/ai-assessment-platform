@@ -4,19 +4,37 @@ import { ShieldAlert } from 'lucide-react';
 import Webcam from 'react-webcam';
 import { proctorService } from '../../services/ProctorService';
 
-const OrbitingProctor = ({ onAnomaly }) => {
+const OrbitingProctor = ({ onAnomaly, submissionId }) => {
     const webcamRef = useRef(null);
     const [stats, setStats] = useState({ focus: 100, tabSwitches: 0 });
 
+    // Start Auto-Flushing on Mount
+    useEffect(() => {
+        if (submissionId) {
+            proctorService.startAutoFlush(submissionId);
+        }
+        return () => proctorService.stopAutoFlush();
+    }, [submissionId]);
+
     // Capture Snapshot Helper
-    const capture = useCallback((reason) => {
+    const capture = useCallback((reason, isAnomaly = false) => {
         if (webcamRef.current) {
             const imageSrc = webcamRef.current.getScreenshot();
             if (imageSrc) {
                 proctorService.saveSnapshot(imageSrc, reason);
+
+                // Determine LogType based on reason
+                const logType = isAnomaly ? 'ANOMALY' : 'SNAPSHOT';
+
+                // Controller expects raw Base64 for SNAPSHOT, JSON for others
+                const data = logType === 'SNAPSHOT'
+                    ? imageSrc
+                    : JSON.stringify({ reason, timestamp: new Date().toISOString() });
+
+                proctorService.sendLog(submissionId, logType, data);
             }
         }
-    }, [webcamRef]);
+    }, [webcamRef, submissionId]);
 
     // Routine Check Interval
     useEffect(() => {
@@ -38,15 +56,19 @@ const OrbitingProctor = ({ onAnomaly }) => {
         const handleVisibilityChange = () => {
             if (document.hidden) {
                 setStats(prev => ({ ...prev, tabSwitches: prev.tabSwitches + 1, focus: Math.max(0, prev.focus - 10) }));
-                capture('Suspect: Tab Switch');
+                capture('Suspect: Tab Switch', true);
                 onAnomaly('Tab Switch Detected');
+                proctorService.sendLog(submissionId, 'TAB_SWITCH', JSON.stringify({
+                    activity: 'Tab Switched',
+                    count: stats.tabSwitches + 1
+                }));
             }
         };
 
         const handleBlur = () => {
             // Also capture on window blur (alt-tab)
-            capture('Suspect: Window Blur');
-            // onAnomaly('Focus Lost'); // Optional: can be too aggressive
+            capture('Suspect: Window Blur', true);
+            proctorService.sendLog(submissionId, 'BLUR', JSON.stringify({ activity: 'Window Lost Focus' }));
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -56,7 +78,7 @@ const OrbitingProctor = ({ onAnomaly }) => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('blur', handleBlur);
         };
-    }, [capture, onAnomaly]);
+    }, [capture, onAnomaly, submissionId]);
 
     return (
         <motion.div

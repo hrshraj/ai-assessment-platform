@@ -1,21 +1,38 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, ShieldCheck, ArrowRight } from 'lucide-react';
+import AuthService from '../services/AuthService';
 
 const RecruiterLogin = ({ onLogin, onSwitchToJoin }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isVerified, setIsVerified] = useState(false);
+    const [error, setError] = useState('');
+    const [credentials, setCredentials] = useState({
+        email: '',
+        password: ''
+    });
 
-    const handleSubmit = (e) => {
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setCredentials(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
-        // Simulate API check
-        setTimeout(() => {
+        setError('');
+
+        try {
+            await AuthService.login(credentials.email, credentials.password);
+
             setIsLoading(false);
             setIsVerified(true);
             // Wait for verify animation then login
             setTimeout(onLogin, 1500);
-        }, 1500);
+        } catch (err) {
+            setIsLoading(false);
+            setError(err.message || 'Login failed. Please check your credentials.');
+        }
     };
 
     return (
@@ -47,15 +64,26 @@ const RecruiterLogin = ({ onLogin, onSwitchToJoin }) => {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-lg text-sm text-center">
+                                {error}
+                            </div>
+                        )}
                         <div className="space-y-4">
                             <input
                                 type="email"
+                                name="email"
+                                value={credentials.email}
+                                onChange={handleChange}
                                 placeholder="Email ID"
                                 className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:border-opacity-50 transition-colors"
                                 required
                             />
                             <input
                                 type="password"
+                                name="password"
+                                value={credentials.password}
+                                onChange={handleChange}
                                 placeholder="Password"
                                 className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:border-opacity-50 transition-colors"
                                 required
@@ -83,6 +111,7 @@ const RecruiterLogin = ({ onLogin, onSwitchToJoin }) => {
                             )}
                         </button>
                     </form>
+
 
                     <div className="mt-6 text-center">
                         <p className="text-gray-500 text-sm">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, Check, Shield, ArrowRight, Camera, Mic, FileText } from 'lucide-react';
+import AuthService from '../../services/AuthService';
 
 const PermissionIcon = ({ icon: Icon, label, active, onClick }) => (
     <motion.button
@@ -24,6 +25,19 @@ const CandidateJoin = ({ onJoin, onSwitchToLogin }) => {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [error, setError] = useState('');
+    const [formData, setFormData] = useState({
+        fullName: '',
+        email: '',
+        githubProfile: '',
+        password: '',
+        phone: '' // Added phone to state as it's in the form
+    });
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
 
     const togglePermission = (key) => {
         setPermissions(prev => ({ ...prev, [key]: !prev[key] }));
@@ -45,16 +59,30 @@ const CandidateJoin = ({ onJoin, onSwitchToLogin }) => {
     const isPermitted = Object.values(permissions).every(Boolean);
     const isReady = isPermitted && uploadProgress === 100;
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (!isReady) return;
 
         setIsLoading(true);
-        setTimeout(() => {
+        setError('');
+
+        try {
+            await AuthService.register({
+                fullName: formData.fullName,
+                email: formData.email,
+                password: formData.password,
+                githubProfile: formData.githubProfile,
+                role: 'CANDIDATE',
+                companyName: null
+            });
+
             setIsLoading(false);
             setIsSuccess(true);
             setTimeout(onJoin, 1500);
-        }, 1500);
+        } catch (err) {
+            setIsLoading(false);
+            setError(err.message || 'Registration failed. Please try again.');
+        }
     };
 
     return (
@@ -86,6 +114,11 @@ const CandidateJoin = ({ onJoin, onSwitchToLogin }) => {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-lg text-sm text-center">
+                                {error}
+                            </div>
+                        )}
                         {/* Permission Dock */}
                         <div className="flex justify-center gap-3 mb-6">
                             <PermissionIcon
@@ -134,24 +167,45 @@ const CandidateJoin = ({ onJoin, onSwitchToLogin }) => {
                         <div className="space-y-4">
                             <input
                                 type="text"
+                                name="fullName"
+                                value={formData.fullName}
+                                onChange={handleChange}
                                 placeholder="Full Name"
                                 className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:border-opacity-50 transition-colors"
                                 required
                             />
                             <input
                                 type="email"
+                                name="email"
+                                value={formData.email}
+                                onChange={handleChange}
                                 placeholder="Email ID"
                                 className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:border-opacity-50 transition-colors"
                                 required
                             />
                             <input
+                                type="text"
+                                name="githubProfile"
+                                value={formData.githubProfile}
+                                onChange={handleChange}
+                                placeholder="GitHub Profile URL"
+                                className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:border-opacity-50 transition-colors"
+                                required
+                            />
+                            <input
                                 type="tel"
+                                name="phone"
+                                value={formData.phone}
+                                onChange={handleChange}
                                 placeholder="Phone Number"
                                 className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:border-opacity-50 transition-colors"
                                 required
                             />
                             <input
                                 type="password"
+                                name="password"
+                                value={formData.password}
+                                onChange={handleChange}
                                 placeholder="Password"
                                 className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:border-opacity-50 transition-colors"
                                 required
@@ -181,6 +235,7 @@ const CandidateJoin = ({ onJoin, onSwitchToLogin }) => {
                             )}
                         </button>
                     </form>
+
 
                     <div className="mt-6 text-center">
                         <p className="text-gray-500 text-sm">

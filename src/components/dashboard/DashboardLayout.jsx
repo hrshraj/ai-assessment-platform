@@ -10,6 +10,7 @@ import { Plus, Menu, X, LayoutDashboard, Award, FileCheck, LogOut } from 'lucide
 const DashboardLayout = ({ onLogout }) => {
     const [view, setView] = useState('dashboard'); // 'dashboard', 'create', 'results', 'profile'
     const [selectedCandidate, setSelectedCandidate] = useState(null);
+    const [selectedAssessmentId, setSelectedAssessmentId] = useState('1'); // Default/Latest assessment ID
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -74,9 +75,9 @@ const DashboardLayout = ({ onLogout }) => {
                     </div>
                 );
             case 'results':
-                return <Leaderboard onSelectCandidate={(candidate) => { setSelectedCandidate(candidate); setView('profile'); }} />;
+                return <Leaderboard assessmentId={selectedAssessmentId} onSelectCandidate={(candidate) => { setSelectedCandidate(candidate); setView('profile'); }} />;
             case 'profile':
-                return selectedCandidate ? <CandidateProfile candidate={selectedCandidate} onBack={() => setView('results')} /> : <Leaderboard onSelectCandidate={(candidate) => { setSelectedCandidate(candidate); setView('profile'); }} />;
+                return selectedCandidate ? <CandidateProfile candidate={selectedCandidate} onBack={() => setView('results')} /> : <Leaderboard assessmentId={selectedAssessmentId} onSelectCandidate={(candidate) => { setSelectedCandidate(candidate); setView('profile'); }} />;
             default:
                 return <DashboardOverview />;
         }

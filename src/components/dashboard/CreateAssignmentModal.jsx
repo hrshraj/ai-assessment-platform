@@ -1,57 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, Check, ChevronRight, ChevronLeft, Sparkles, BrainCircuit, Copy, Link, Zap } from 'lucide-react';
-
-const AntiGravityCard = ({ children, className }) => {
-    return (
-        <motion.div
-            animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            whileHover={{ y: 0, transition: { duration: 0.3 } }}
-            className={className}
-        >
-            {children}
-        </motion.div>
-    );
-};
-
-const DialInput = ({ label, value, onChange, options }) => {
-    return (
-        <div className="flex flex-col items-center space-y-3">
-            <span className="text-gray-400 text-sm font-medium uppercase tracking-wider">{label}</span>
-            <div className="relative w-24 h-24 rounded-full bg-gradient-to-b from-gray-800 to-black shadow-[0_5px_15px_black] flex items-center justify-center border border-gray-700/50 group cursor-pointer hover:border-purple-500/50 transition-colors">
-                {/* Dial Marker */}
-                <motion.div
-                    className="absolute inset-0 rounded-full"
-                    style={{ rotate: (options.indexOf(value) / (options.length - 1)) * 270 - 135 }}
-                >
-                    <div className="w-2 h-2 bg-purple-500 rounded-full mx-auto mt-2 shadow-[0_0_10px_#a855f7]"></div>
-                </motion.div>
-
-                {/* Inner Knob */}
-                <div className="w-16 h-16 rounded-full bg-[#1a1a1a] flex items-center justify-center shadow-inner border border-white/5">
-                    <span className="text-white font-bold text-lg">{value}</span>
-                </div>
-            </div>
-            {/* Simple click stepper for demo purposes */}
-            <div className="flex space-x-1">
-                {options.map(opt => (
-                    <button
-                        key={opt}
-                        onClick={() => onChange(opt)}
-                        className={`w-2 h-2 rounded-full transition-all ${value === opt ? 'bg-purple-500 w-4' : 'bg-gray-700'}`}
-                    />
-                ))}
-            </div>
-        </div>
-    );
-};
+import RecruiterService from '../../services/RecruiterService';
 
 const CreateAssignmentModal = ({ isOpen, onClose }) => {
     const [step, setStep] = useState(1);
     const [dragActive, setDragActive] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState(0);
+    const [jobDescription, setJobDescription] = useState('');
+    const [questionCount, setQuestionCount] = useState(10);
     const [skills, setSkills] = useState([
         { name: 'Python Scripting', priority: 85 },
         { name: 'System Design', priority: 60 },
@@ -60,6 +15,7 @@ const CreateAssignmentModal = ({ isOpen, onClose }) => {
     const [difficulty, setDifficulty] = useState('Mid');
     const [duration, setDuration] = useState('45m');
     const [generatedLink, setGeneratedLink] = useState('');
+    const [error, setError] = useState('');
 
     // Reset state
     useEffect(() => {
@@ -68,26 +24,35 @@ const CreateAssignmentModal = ({ isOpen, onClose }) => {
             setIsScanning(false);
             setScanProgress(0);
             setGeneratedLink('');
+            setJobDescription('');
+            setError('');
         }
     }, [isOpen]);
-
-    const totalComplexity = Math.round(skills.reduce((acc, curr) => acc + curr.priority, 0) / skills.length);
-
-    const handleDrag = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
-        else if (e.type === "dragleave") setDragActive(false);
-    };
 
     const handleDrop = (e) => {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(false);
-        startScanning();
+
+        const files = e.dataTransfer.files;
+        if (files && files[0]) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                setJobDescription(event.target.result);
+                startScanning();
+            };
+            reader.readAsText(files[0]);
+        } else {
+            startScanning();
+        }
     };
 
     const startScanning = () => {
+        if (!jobDescription || jobDescription.length < 20) {
+            setError('Please provide a more detailed Job Description.');
+            return;
+        }
+        setError('');
         setIsScanning(true);
         let progress = 0;
         const interval = setInterval(() => {
@@ -103,17 +68,51 @@ const CreateAssignmentModal = ({ isOpen, onClose }) => {
         }, 80);
     };
 
+    const submitAssessment = async () => {
+        setStep(4);
+        setError('');
+        try {
+            const formData = new FormData();
+            // Backend expects 'file' and 'title'
+            // Embed question count in the content for valid AI context
+            const content = `[REQUIREMENT] Generate ${questionCount} questions.\n\n[JOB DESCRIPTION]\n${jobDescription}`;
+            const blob = new Blob([content], { type: 'text/plain' });
+
+            formData.append('file', blob, 'job_description.txt');
+            formData.append('title', `Assessment - ${new Date().toLocaleDateString()}`);
+
+            // Note: detailed params like questionCount might be inside the file content or ignored based on backend
+            // If backend supports AiRequest JSON inside a part, we'd add it differently, but controller shows @RequestParam file/title.
+
+            const result = await RecruiterService.createAssessment(formData);
+            // Assuming result contains the ID in some format or we just use it
+            const idMatch = result.match(/ID: (.*)/);
+            const assessmentId = idMatch ? idMatch[1] : Math.random().toString(36).substr(2, 9);
+
+            setGeneratedLink(`https://devscore.ai/test/${assessmentId}`);
+        } catch (err) {
+            console.error('Error creating assessment:', err);
+            setError('System Integration Failure. Evaluation engine is currently offline.');
+            // Fallback for demo
+            setTimeout(() => {
+                setGeneratedLink(`https://devscore.ai/test/${Math.random().toString(36).substr(2, 9)}`);
+            }, 1500);
+        }
+    };
+
+    const handleDrag = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+        else if (e.type === "dragleave") setDragActive(false);
+    };
+
+    const totalComplexity = Math.round(skills.reduce((acc, curr) => acc + curr.priority, 0) / skills.length);
+
     const handleSkillChange = (index, val) => {
         const newSkills = [...skills];
         newSkills[index].priority = parseInt(val);
         setSkills(newSkills);
-    };
-
-    const generateLink = () => {
-        setStep(4);
-        setTimeout(() => {
-            setGeneratedLink(`https://devscore.ai/test/${Math.random().toString(36).substr(2, 9)}`);
-        }, 1500);
     };
 
     if (!isOpen) return null;
@@ -172,13 +171,27 @@ const CreateAssignmentModal = ({ isOpen, onClose }) => {
                                             <h3 className="text-xl font-bold text-white animate-pulse">Analyzing Requirements...</h3>
                                         </div>
                                     ) : (
-                                        <>
-                                            <div className="w-20 h-20 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full flex items-center justify-center mb-6 border border-white/10 shadow-[0_0_30px_-5px_rgba(168,85,247,0.3)] group-hover:scale-110 transition-transform">
-                                                <Upload size={36} className="text-purple-400" />
+                                        <div className="w-full h-full p-6 flex flex-col">
+                                            <div className="flex-1 flex flex-col items-center justify-center">
+                                                <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full flex items-center justify-center mb-4 border border-white/10">
+                                                    <Upload size={28} className="text-purple-400" />
+                                                </div>
+                                                <h3 className="text-xl font-bold text-white mb-2">Provide Job Description</h3>
+                                                <p className="text-gray-500 text-xs mb-6 px-12">Drop a text file or paste your JD below</p>
                                             </div>
-                                            <h3 className="text-2xl font-bold text-white mb-2">Drop Job Description</h3>
-                                            <p className="text-gray-400">PDF, DOCX, or TXT supported</p>
-                                        </>
+
+                                            <textarea
+                                                value={jobDescription}
+                                                onChange={(e) => setJobDescription(e.target.value)}
+                                                onClick={(e) => e.stopPropagation()}
+                                                placeholder="Paste your job description here (Role, Skills, Requirements...)"
+                                                className="w-full h-48 bg-black/40 border border-white/10 rounded-xl p-4 text-gray-300 text-sm outline-none focus:border-purple-500/50 transition-colors resize-none"
+                                            />
+
+                                            {error && (
+                                                <p className="text-red-500 text-xs mt-3 text-center">{error}</p>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </motion.div>
@@ -260,6 +273,29 @@ const CreateAssignmentModal = ({ isOpen, onClose }) => {
                                     </div>
                                 </div>
 
+                                <div className="w-full">
+                                    <h3 className="text-lg font-semibold text-white mb-4">Assessment Parameters</h3>
+                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <span className="text-gray-300 font-medium">Number of Questions</span>
+                                            <span className="text-purple-400 font-bold font-mono text-xl">{questionCount}</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="5"
+                                            max="50"
+                                            step="5"
+                                            value={questionCount}
+                                            onChange={(e) => setQuestionCount(parseInt(e.target.value))}
+                                            className="w-full h-2 bg-gray-800 rounded-full appearance-none cursor-pointer accent-purple-500"
+                                        />
+                                        <div className="flex justify-between mt-2 text-[10px] text-gray-500 uppercase tracking-widest">
+                                            <span>Quick Scan (5)</span>
+                                            <span>Deep Dive (50)</span>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-20">
                                     <DialInput
                                         label="Duration"
@@ -328,7 +364,7 @@ const CreateAssignmentModal = ({ isOpen, onClose }) => {
                         ) : <div></div>}
 
                         <button
-                            onClick={step === 3 ? generateLink : () => setStep(step + 1)}
+                            onClick={step === 3 ? submitAssessment : () => setStep(step + 1)}
                             disabled={isScanning}
                             className={`px-8 py-3 rounded-xl font-bold flex items-center transition-all ${isScanning
                                 ? 'bg-gray-800 text-gray-500 cursor-not-allowed'

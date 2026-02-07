@@ -1,20 +1,43 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, ArrowRight, Check } from 'lucide-react';
+import AuthService from '../services/AuthService';
 
 const RecruiterJoin = ({ onJoin, onSwitchToLogin }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [error, setError] = useState('');
+    const [formData, setFormData] = useState({
+        fullName: '',
+        email: '',
+        companyName: '',
+        password: ''
+    });
 
-    const handleSubmit = (e) => {
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
-        // Simulate API call
-        setTimeout(() => {
+        setError('');
+
+        try {
+            await AuthService.register({
+                ...formData,
+                role: 'RECRUITER',
+                githubProfile: null
+            });
+
             setIsLoading(false);
             setIsSuccess(true);
             setTimeout(onJoin, 1500);
-        }, 1500);
+        } catch (err) {
+            setIsLoading(false);
+            setError(err.message || 'Registration failed. Please try again.');
+        }
     };
 
     return (
@@ -46,27 +69,44 @@ const RecruiterJoin = ({ onJoin, onSwitchToLogin }) => {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-lg text-sm text-center">
+                                {error}
+                            </div>
+                        )}
                         <div className="space-y-4">
                             <input
                                 type="text"
+                                name="fullName"
+                                value={formData.fullName}
+                                onChange={handleChange}
                                 placeholder="Full Name"
                                 className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:border-opacity-50 transition-colors"
                                 required
                             />
                             <input
                                 type="email"
+                                name="email"
+                                value={formData.email}
+                                onChange={handleChange}
                                 placeholder="Official Email ID"
                                 className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:border-opacity-50 transition-colors"
                                 required
                             />
                             <input
                                 type="text"
+                                name="companyName"
+                                value={formData.companyName}
+                                onChange={handleChange}
                                 placeholder="Company Name"
                                 className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:border-opacity-50 transition-colors"
                                 required
                             />
                             <input
                                 type="password"
+                                name="password"
+                                value={formData.password}
+                                onChange={handleChange}
                                 placeholder="Password"
                                 className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:border-opacity-50 transition-colors"
                                 required
@@ -94,6 +134,7 @@ const RecruiterJoin = ({ onJoin, onSwitchToLogin }) => {
                             )}
                         </button>
                     </form>
+
 
                     <div className="mt-6 text-center">
                         <p className="text-gray-500 text-sm">

@@ -4,11 +4,18 @@ import { Play, Code, Terminal, Save } from 'lucide-react';
 import * as rrweb from 'rrweb';
 import { proctorService } from '../../services/ProctorService';
 
-const CodeSanctuary = ({ onComplete, onAnomaly }) => {
-    const [code, setCode] = useState(`def solve_problem(input_data):\n    # Write your optimal solution here\n    # Expected Time Complexity: O(N)\n    pass`);
+const CodeSanctuary = ({ onComplete, onAnomaly, problem, submissionId }) => {
+    const [code, setCode] = useState(problem?.initialCode || problem?.text || `def solve_problem(input_data):\n    # Write your optimal solution here\n    # Expected Time Complexity: O(N)\n    pass`);
     const [output, setOutput] = useState('');
     const eventsRef = useRef([]);
     const stopFnRef = useRef(null);
+
+    // Update code if problem changes
+    useEffect(() => {
+        if (problem?.initialCode || problem?.text) {
+            setCode(problem.initialCode || problem.text);
+        }
+    }, [problem]);
 
     // Start Recording on Mount
     useEffect(() => {
@@ -34,14 +41,27 @@ const CodeSanctuary = ({ onComplete, onAnomaly }) => {
         setOutput('Running test cases...\nTest Case 1: PASSED\nTest Case 2: PASSED\nTest Case 3: PASSED');
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         // Stop recording
         if (stopFnRef.current) stopFnRef.current();
 
-        // Save Replay
+        // Save Replay to local storage for backup
         proctorService.saveReplay(eventsRef.current);
 
-        onComplete();
+        // Upload Replay to backend
+        if (submissionId && eventsRef.current.length > 0) {
+            // eventsRef.current is an array of objects.
+            // Backend expects JSON string for data.
+            // We'll wrap it in a structure if needed, or just send raw events array stringified.
+            // Assuming Recruiter Service expects standard rrweb events array.
+            await proctorService.sendLog(submissionId, 'REPLAY', JSON.stringify(eventsRef.current));
+        }
+
+        onComplete({
+            questionId: problem?.id || 'coding_1',
+            code,
+            language: problem?.language || 'python'
+        });
     };
 
     return (

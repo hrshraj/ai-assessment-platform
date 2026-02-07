@@ -44,6 +44,7 @@ function App() {
   const [view, setView] = useState('landing');
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Recruiter
   const [isCandidateAuth, setIsCandidateAuth] = useState(false); // Candidate
+  const [activeAssessmentId, setActiveAssessmentId] = useState(null);
 
   // Page Transition Variants (Anti-Gravity)
   const pageVariants = {
@@ -185,7 +186,10 @@ function App() {
 
         {view === 'candidate-browse' && (
           <PageWrapper key="candidate-browse">
-            <JobBrowser onApply={() => setView('assessment')} />
+            <JobBrowser onApply={(id) => {
+              setActiveAssessmentId(id || 'default-assessment-123'); // Fallback for mock data
+              setView('assessment');
+            }} />
             <Footer onNavigate={(page) => setView(page)} />
           </PageWrapper>
         )}
@@ -207,7 +211,7 @@ function App() {
         {/* ASSESSMENT ARENA ROUTE */}
         {view === 'assessment' && (
           <PageWrapper key="assessment">
-            <AssessmentLayout />
+            <AssessmentLayout assessmentId={activeAssessmentId} />
             <Footer onNavigate={(page) => setView(page)} />
           </PageWrapper>
         )}

@@ -43,12 +43,12 @@ const JobCard = ({ job, onApply }) => {
 
 const JobBrowser = ({ onApply }) => {
     const jobs = [
-        { title: "Senior React Engineer", company: "TechCorp", location: "Remote", salary: "$120k - $180k", type: "Full-time" },
-        { title: "AI/ML Developer", company: "DataLabs", location: "San Francisco, CA", salary: "$150k - $220k", type: "Full-time" },
-        { title: "Full Stack Developer", company: "WebSolutions", location: "New York, NY", salary: "$100k - $160k", type: "Full-time" },
-        { title: "DevOps Engineer", company: "CloudSystems", location: "Austin, TX", salary: "$110k - $170k", type: "Full-time" },
-        { title: "Frontend Developer", company: "DesignStudio", location: "Los Angeles, CA", salary: "$90k - $140k", type: "Full-time" },
-        { title: "Backend Engineer", company: "ServerPro", location: "Seattle, WA", salary: "$120k - $180k", type: "Full-time" },
+        { id: "react-sr-001", title: "Senior React Engineer", company: "TechCorp", location: "Remote", salary: "$120k - $180k", type: "Full-time" },
+        { id: "ai-ml-002", title: "AI/ML Developer", company: "DataLabs", location: "San Francisco, CA", salary: "$150k - $220k", type: "Full-time" },
+        { id: "fs-003", title: "Full Stack Developer", company: "WebSolutions", location: "New York, NY", salary: "$100k - $160k", type: "Full-time" },
+        { id: "devops-004", title: "DevOps Engineer", company: "CloudSystems", location: "Austin, TX", salary: "$110k - $170k", type: "Full-time" },
+        { id: "fe-005", title: "Frontend Developer", company: "DesignStudio", location: "Los Angeles, CA", salary: "$90k - $140k", type: "Full-time" },
+        { id: "be-006", title: "Backend Engineer", company: "ServerPro", location: "Seattle, WA", salary: "$120k - $180k", type: "Full-time" },
     ];
 
     return (
@@ -60,7 +60,7 @@ const JobBrowser = ({ onApply }) => {
 
             <div className="flex flex-wrap gap-4">
                 {jobs.map((job, idx) => (
-                    <JobCard key={idx} job={job} onApply={onApply} />
+                    <JobCard key={idx} job={job} onApply={() => onApply(job.id)} />
                 ))}
             </div>
         </div>

@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, Circle } from 'lucide-react';
 
-const MCQSession = ({ onComplete }) => {
+const MCQSession = ({ onComplete, questions }) => {
     const [selected, setSelected] = useState(null);
 
-    const questions = [
+    // Fallback if no questions provided
+    const displayQuestions = questions && questions.length > 0 ? questions : [
         {
-            id: 1,
+            id: 'mock-1',
             text: "Which of the following is NOT a core principle of Redux?",
             options: [
                 "Single source of truth",
@@ -15,13 +16,18 @@ const MCQSession = ({ onComplete }) => {
                 "Changes are made with pure functions",
                 "State is distributed across components"
             ],
-            correct: 3
+            correctIndex: 3
         }
     ];
 
+    const currentQuestion = displayQuestions[0]; // Currently handling single question for simplicity
+
     const handleSubmit = () => {
         if (selected !== null) {
-            onComplete();
+            onComplete({
+                questionId: currentQuestion.id || 'id_not_found',
+                selectedOption: currentQuestion.options[selected]
+            });
         }
     };
 
@@ -30,16 +36,16 @@ const MCQSession = ({ onComplete }) => {
             <h2 className="text-2xl font-bold text-white mb-8">Stage 1: Knowledge Check</h2>
 
             <div className="w-full space-y-6">
-                <p className="text-xl text-gray-300 font-medium">{questions[0].text}</p>
+                <p className="text-xl text-gray-300 font-medium">{currentQuestion.text}</p>
 
                 <div className="space-y-4">
-                    {questions[0].options.map((opt, idx) => (
+                    {currentQuestion.options.map((opt, idx) => (
                         <button
                             key={idx}
                             onClick={() => setSelected(idx)}
                             className={`w-full text-left p-4 rounded-xl border transition-all flex items-center justify-between group ${selected === idx
-                                    ? 'bg-purple-500/20 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]'
-                                    : 'bg-black/20 border-white/10 hover:bg-white/10'
+                                ? 'bg-purple-500/20 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]'
+                                : 'bg-black/20 border-white/10 hover:bg-white/10'
                                 }`}
                         >
                             <span className={selected === idx ? 'text-white' : 'text-gray-400'}>{opt}</span>

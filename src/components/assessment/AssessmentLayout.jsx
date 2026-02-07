@@ -55,29 +55,121 @@ const StageSwitcher = ({ currentStage }) => (
     </div>
 );
 
+import CandidateService from '../../services/CandidateService';
+
 const determinePassed = (current, target) => {
     const stages = ['mcq', 'subjective', 'coding', 'interview', 'complete'];
     return stages.indexOf(current) > stages.indexOf(target);
 };
 
-const AssessmentLayout = () => {
+const AssessmentLayout = ({ assessmentId }) => {
     const [anomaly, setAnomaly] = useState(null);
     const [stage, setStage] = useState('mcq'); // 'mcq' | 'subjective' | 'coding' | 'interview' | 'complete'
+    const [testData, setTestData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [results, setResults] = useState([]);
+
+    useEffect(() => {
+        const loadTest = async () => {
+            try {
+                setLoading(true);
+                const data = await CandidateService.startTest(assessmentId);
+                setTestData(data);
+                setLoading(false);
+            } catch (err) {
+                console.error('Error starting test:', err);
+                setError(err.message || 'Failed to load assessment. Please ensure you are authorized.');
+                setLoading(false);
+            }
+        };
+
+        if (assessmentId) {
+            loadTest();
+        }
+    }, [assessmentId]);
 
     const triggerAnomaly = (msg) => {
         setAnomaly(msg);
         setTimeout(() => setAnomaly(null), 2000);
     };
 
-    const nextStage = () => {
+    const nextStage = (stageResult) => {
+        // Collect result if provided as AnswerDto
+        if (stageResult) {
+            setResults(prev => {
+                const newAnswer = {
+                    questionId: stageResult.questionId || 'unknown',
+                    selectedOption: stageResult.selectedOption || null,
+                    codeAnswer: stageResult.codeAnswer || stageResult.answer || stageResult.code || null
+                };
+                return [...prev, newAnswer];
+            });
+        }
+
         const flow = {
             'mcq': 'subjective',
             'subjective': 'coding',
             'coding': 'interview',
             'interview': 'complete'
         };
-        setStage(flow[stage]);
+
+        const next = flow[stage];
+        setStage(next);
+
+        // If complete, trigger final submission
+        if (next === 'complete') {
+            handleSubmitAll();
+        }
     };
+
+    const handleSubmitAll = async () => {
+        try {
+            // Flush remaining proctoring logs
+            await proctorService.flushLogs(testData?.submissionId || assessmentId);
+
+            // Unify results into SubmissionRequest format
+            const submissionData = {
+                assessmentId,
+                answers: results
+            };
+
+            await CandidateService.submitTest(submissionData);
+            console.log('Final assessment submitted successfully:', submissionData);
+        } catch (err) {
+            console.error('Error submitting assessment:', err);
+            // Optionally show error to user
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="flex flex-col items-center">
+                    <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-4"></div>
+                    <p className="text-gray-400 animate-pulse">Initializing Neural Link...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-8">
+                <div className="max-w-md w-full bg-red-500/10 border border-red-500/30 rounded-2xl p-8 text-center">
+                    <AlertTriangle size={48} className="text-red-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-white mb-2">System Error</h2>
+                    <p className="text-red-300 mb-6">{error}</p>
+                    <button
+                        onClick={() => window.location.href = '/'}
+                        className="px-6 py-2 bg-white text-black rounded-lg font-bold"
+                    >
+                        Return to Safety
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={`min-h-screen bg-black text-white relative overflow-hidden flex flex-col ${anomaly ? 'animate-shake' : ''}`}>
@@ -91,8 +183,11 @@ const AssessmentLayout = () => {
             `}</style>
 
             <DataCore />
-            <ComplianceBanner />
-            <OrbitingProctor onAnomaly={triggerAnomaly} />
+            {/* Invisible Proctoring Layer */}
+            <OrbitingProctor
+                onAnomaly={triggerAnomaly}
+                submissionId={testData?.submissionId || assessmentId}
+            />
 
             {/* Back to browsing button */}
             <div className="fixed top-6 left-6 z-50">
@@ -132,6 +227,23 @@ const AssessmentLayout = () => {
             </AnimatePresence>
 
             <div className="flex-1 flex flex-col max-w-7xl mx-auto w-full p-8 relative z-10 pt-24">
+                {testData?.title && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-center mb-8"
+                    >
+                        <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
+                            {testData.title}
+                        </h1>
+                        {testData.durationMinutes && (
+                            <p className="text-gray-500 text-sm mt-2 font-mono">
+                                Time Limit: {testData.durationMinutes} Minutes
+                            </p>
+                        )}
+                    </motion.div>
+                )}
+
                 <StageSwitcher currentStage={stage} />
 
                 <AnimatePresence mode="wait">
@@ -143,13 +255,28 @@ const AssessmentLayout = () => {
                         transition={{ duration: 0.5 }}
                         className="flex-1"
                     >
-                        {stage === 'mcq' && <MCQSession onComplete={nextStage} />}
+                        {stage === 'mcq' && (
+                            <MCQSession
+                                onComplete={(ans) => nextStage(ans)}
+                                questions={testData?.questions?.filter(q => q.type === 'MCQ')}
+                            />
+                        )}
 
-                        {stage === 'subjective' && <SubjectiveSession onComplete={nextStage} />}
+                        {stage === 'subjective' && (
+                            <SubjectiveSession
+                                onComplete={(ans) => nextStage(ans)}
+                                questions={testData?.questions?.filter(q => q.type === 'SUBJECTIVE')}
+                            />
+                        )}
 
                         {stage === 'coding' && (
                             <div className="h-[600px]">
-                                <CodeSanctuary onComplete={nextStage} onAnomaly={triggerAnomaly} />
+                                <CodeSanctuary
+                                    onComplete={(code) => nextStage(code)}
+                                    onAnomaly={triggerAnomaly}
+                                    problem={testData?.questions?.find(q => q.type === 'CODING')}
+                                    submissionId={testData?.submissionId || assessmentId}
+                                />
                             </div>
                         )}
 
@@ -159,9 +286,15 @@ const AssessmentLayout = () => {
                                     <Mic size={48} className="text-white" />
                                 </div>
                                 <h2 className="text-3xl font-bold text-white mb-2">AI Interview Active</h2>
-                                <p className="text-gray-400 mb-8">"Describe a challenge you faced with distributed systems."</p>
+                                <p className="text-gray-400 mb-8">
+                                    {testData?.questions?.find(q => q.type === 'INTERVIEW')?.text ||
+                                        '"Describe a challenge you faced with distributed systems."'}
+                                </p>
                                 <button
-                                    onClick={nextStage}
+                                    onClick={() => nextStage({
+                                        questionId: testData?.questions?.find(q => q.type === 'INTERVIEW')?.id || 'interview_1',
+                                        codeAnswer: 'completed'
+                                    })}
                                     className="px-8 py-3 bg-white text-black rounded-full font-bold hover:scale-105 transition-transform"
                                 >
                                     Finish Interview

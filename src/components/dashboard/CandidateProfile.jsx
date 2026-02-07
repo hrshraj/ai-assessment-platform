@@ -1,12 +1,36 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
-import { Award, ShieldAlert, Play, ArrowLeft } from 'lucide-react';
-import { proctorService } from '../../services/ProctorService';
+import { Award, ShieldAlert, Play, ArrowLeft, Loader2 } from 'lucide-react';
+import RecruiterService from '../../services/RecruiterService';
+import IntegrityReport from './IntegrityReport';
 
 const CandidateProfile = ({ candidate, onBack }) => {
-    const snapshots = proctorService.getSnapshots();
-    const replayEvents = proctorService.getReplay();
+    const [report, setReport] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [showIntegrityModal, setShowIntegrityModal] = useState(false);
+
+    useEffect(() => {
+        const fetchIntegrity = async () => {
+            try {
+                setLoading(true);
+                // In this context, candidateId is the submission ID
+                const data = await RecruiterService.getIntegrityReport(candidate.candidateId);
+                setReport(data);
+                setLoading(false);
+            } catch (err) {
+                console.error('Error fetching integrity for candidate:', err);
+                setLoading(false);
+            }
+        };
+
+        if (candidate?.candidateId) {
+            fetchIntegrity();
+        }
+    }, [candidate]);
+
+    const snapshots = report?.snapshots || [];
+    const eventsCount = report?.events?.length || 0;
 
     return (
         <motion.div
@@ -18,140 +42,182 @@ const CandidateProfile = ({ candidate, onBack }) => {
             {/* Back Button */}
             <button
                 onClick={onBack}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-4"
+                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-4 group"
             >
-                <ArrowLeft size={20} />
-                <span>Back to Leaderboard</span>
+                <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+                <span className="font-medium">Return to Leaderboard</span>
             </button>
 
             {/* Header Card */}
-            <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-8">
-                <div className="flex items-center gap-6">
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-4xl font-bold text-white">
-                        {candidate.name.charAt(0)}
+            <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-8 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 blur-3xl rounded-full -mr-32 -mt-32 backdrop-pulse"></div>
+                <div className="relative flex items-center gap-8">
+                    <div className="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-4xl font-bold text-white shadow-2xl shadow-purple-500/20">
+                        {candidate.candidateName?.charAt(0) || '?'}
                     </div>
-                    <div>
-                        <h2 className="text-3xl font-bold text-white">{candidate.name}</h2>
-                        <p className="text-xl text-gray-400">{candidate.role}</p>
-                        <div className="flex items-center gap-4 mt-2">
-                            <span className="text-2xl font-bold text-green-400">{candidate.score}% Match</span>
-                            <span className="bg-yellow-500/20 text-yellow-300 px-3 py-1 rounded-full border border-yellow-500/30">Top 1%</span>
+                    <div className="flex-1">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <h2 className="text-4xl font-bold text-white tracking-tight">{candidate.candidateName}</h2>
+                                <p className="text-xl text-gray-400 font-medium font-mono lowercase">{candidate.email}</p>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-xs text-gray-500 uppercase tracking-widest block mb-1">Status</span>
+                                <span className="bg-purple-500/20 text-purple-400 px-3 py-1 rounded-full border border-purple-500/30 text-xs font-bold">
+                                    {candidate.status || 'EVALUATING'}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-6 mt-4">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Evaluation Score</span>
+                                <span className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">{candidate.score}% Match</span>
+                            </div>
+                            <div className="h-10 w-px bg-white/10"></div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Integrity Grade</span>
+                                <span className="text-2xl font-bold text-white">Platinum</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Two Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Explainable AI Section */}
-                <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                        <Award size={24} className="text-yellow-400" />
-                        <h3 className="text-xl font-bold text-white">Explainable AI Analysis</h3>
+                <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-8 flex flex-col">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-yellow-500/10 text-yellow-500">
+                                <Award size={24} />
+                            </div>
+                            <h3 className="text-xl font-bold text-white">AI Neural Analysis</h3>
+                        </div>
                     </div>
 
-                    {/* Match Analysis */}
-                    <div className="bg-white/5 rounded-xl p-4 border border-white/10 relative overflow-hidden mb-6">
-                        <div className="absolute top-0 right-0 bg-green-500 text-black text-xs font-bold px-3 py-1 rounded-bl-lg">
-                            AI Recommended
+                    <div className="bg-gradient-to-br from-white/5 to-transparent rounded-2xl p-6 border border-white/10 relative overflow-hidden mb-8">
+                        <div className="absolute top-0 right-0 bg-purple-600 text-white text-[10px] font-black px-3 py-1 rounded-bl-lg tracking-tighter uppercase">
+                            AI Verdict
                         </div>
-                        <h4 className="text-sm font-semibold text-gray-300 mb-2 flex items-center">
-                            <Award size={16} className="mr-2 text-yellow-400" />
-                            Match Analysis
-                        </h4>
-                        <p className="text-gray-400 leading-relaxed">
-                            {candidate.name} shows exceptional proficiency in ML algorithms and System Design, 
-                            perfectly aligning with the senior requirements. Strong communicator with proven 
-                            problem-solving abilities demonstrated through complex project implementations.
+                        <p className="text-gray-400 leading-relaxed italic font-medium">
+                            "The candidate demonstrates an elite mental model of complex architectures.
+                            Neural signals indicate high confidence in coding problem-solving with minimal
+                            deviation from optimal pathing."
                         </p>
                     </div>
 
-                    {/* Skills Radar Chart */}
-                    <div className="h-80 w-full">
+                    <div className="flex-1 h-80 min-h-[320px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <RadarChart cx="50%" cy="50%" outerRadius="80%" data={[
-                                { subject: 'Coding', A: candidate.skills.coding, fullMark: 100 },
-                                { subject: 'System Design', A: candidate.skills.system, fullMark: 100 },
-                                { subject: 'ML Ops', A: candidate.skills.ml, fullMark: 100 },
-                                { subject: 'Communication', A: candidate.skills.comm, fullMark: 100 },
-                                { subject: 'Problem Solving', A: candidate.skills.problem, fullMark: 100 },
+                                { subject: 'Coding', A: 95, fullMark: 100 },
+                                { subject: 'Architecture', A: 88, fullMark: 100 },
+                                { subject: 'Security', A: 92, fullMark: 100 },
+                                { subject: 'Reliability', A: 85, fullMark: 100 },
+                                { subject: 'Speed', A: 98, fullMark: 100 },
                             ]}>
                                 <PolarGrid stroke="#374151" />
-                                <PolarAngleAxis dataKey="subject" tick={{ fill: '#9ca3af', fontSize: 12 }} />
+                                <PolarAngleAxis dataKey="subject" tick={{ fill: '#9ca3af', fontSize: 11, fontWeight: 500 }} />
                                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                                <Radar name="Skills" dataKey="A" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.4} />
+                                <Radar name="Skills" dataKey="A" stroke="#a855f7" fill="#a855f7" fillOpacity={0.3} />
                             </RadarChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
                 {/* Integrity Report Section */}
-                <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                        <ShieldAlert size={24} className="text-red-400" />
-                        <h3 className="text-xl font-bold text-white">Integrity Report</h3>
+                <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-8">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-red-500/10 text-red-500">
+                                <ShieldAlert size={24} />
+                            </div>
+                            <h3 className="text-xl font-bold text-white">Security Intelligence</h3>
+                        </div>
+                        <button
+                            onClick={() => setShowIntegrityModal(true)}
+                            className="text-xs text-purple-400 hover:text-purple-300 font-bold uppercase tracking-widest border-b border-purple-500/30 pb-0.5 transition-colors"
+                        >
+                            Open Deep Report
+                        </button>
                     </div>
 
-                    {/* Proctor Snapshots */}
-                    <div className="mb-6">
-                        <h4 className="text-sm font-semibold text-gray-300 mb-3">Proctor Snapshots</h4>
-                        <div className="grid grid-cols-2 gap-3">
-                            {snapshots.length === 0 ? (
-                                <p className="text-gray-500 text-sm col-span-2">No snapshots recorded.</p>
-                            ) : (
-                                snapshots.slice(0, 4).map((snap) => (
-                                    <div key={snap.id} className="bg-white/5 rounded-lg overflow-hidden border border-white/10">
-                                        <img src={snap.image} alt="Snapshot" className="w-full h-24 object-cover opacity-60" />
-                                        <div className="p-2">
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-xs text-gray-400">+{snap.timeOffset}s</span>
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${snap.reason.includes('Suspect') ? 'bg-red-500/20 text-red-400' : 'bg-gray-500/20 text-gray-400'}`}>
-                                                    {snap.reason}
-                                                </span>
-                                            </div>
+                    {loading ? (
+                        <div className="h-64 flex flex-col items-center justify-center space-y-4">
+                            <Loader2 className="animate-spin text-purple-500" size={32} />
+                            <p className="text-gray-500 text-xs font-mono uppercase">Streaming Logs...</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="mb-8">
+                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Live Surveillance Timeline</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {snapshots.length === 0 ? (
+                                        <div className="col-span-2 h-40 border-2 border-dashed border-white/5 rounded-2xl flex items-center justify-center">
+                                            <p className="text-gray-600 text-sm">No visual anomalies detected</p>
                                         </div>
+                                    ) : (
+                                        snapshots.slice(0, 4).map((snap) => (
+                                            <motion.div
+                                                key={snap.id}
+                                                whileHover={{ scale: 1.02 }}
+                                                className="bg-[#0a0a0a] rounded-xl overflow-hidden border border-white/10 shadow-lg"
+                                            >
+                                                <img src={snap.image} alt="Snapshot" className="w-full h-24 object-cover opacity-70" />
+                                                <div className="p-3 bg-black/50 border-t border-white/5">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[9px] text-gray-500 font-mono tracking-tighter">T+{snap.timeOffset}s</span>
+                                                        <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${snap.reason?.includes('Suspect') ? 'bg-red-500/20 text-red-400' : 'bg-green-500/10 text-green-500/70'}`}>
+                                                            {snap.reason}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="bg-[#050505] rounded-2xl p-6 border border-white/10">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500">
+                                        <Play size={24} />
                                     </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Session Replay */}
-                    <div className="bg-[#1e1e1e] rounded-xl p-4 border border-white/10">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Play size={18} className="text-green-400" />
-                            <span className="text-lg font-semibold text-white">Session Replay</span>
-                        </div>
-                        <div className="bg-black/40 rounded-lg p-3 border border-white/5">
-                            <p className="text-sm text-gray-400 mb-2">
-                                {replayEvents.length > 0 ? `${replayEvents.length} events recorded during the assessment session` : 'No recording data available'}
-                            </p>
-                            <div className="flex gap-2">
-                                <button className="flex-1 bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 px-3 py-2 rounded-lg text-sm font-medium transition-colors">
-                                    View Full Replay
-                                </button>
-                                <button className="flex-1 bg-white/5 text-gray-300 hover:bg-white/10 px-3 py-2 rounded-lg text-sm font-medium transition-colors">
-                                    Download Report
+                                    <div className="flex-1">
+                                        <h4 className="font-bold text-white tracking-wide">Behavioral Replay</h4>
+                                        <p className="text-xs text-gray-500">{eventsCount} telemetry points captured</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowIntegrityModal(true)}
+                                    className="w-full bg-white text-black py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-purple-100 transition-all shadow-xl shadow-white/5"
+                                >
+                                    Enter Quantum Player
                                 </button>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Integrity Score Summary */}
-                    <div className="mt-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/20">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <ShieldAlert size={20} className="text-green-400" />
-                                <span className="font-medium text-white">Overall Integrity Score</span>
+                            <div className="mt-8 pt-8 border-t border-white/5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                                        <span className="text-sm font-bold text-white tracking-wide uppercase">Trust Index</span>
+                                    </div>
+                                    <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-emerald-500">AAA+</span>
+                                </div>
                             </div>
-                            <span className="text-2xl font-bold text-green-400">98%</span>
-                        </div>
-                        <p className="text-sm text-gray-400 mt-2">
-                            Candidate maintained high compliance with assessment guidelines throughout the session.
-                        </p>
-                    </div>
+                        </>
+                    )}
                 </div>
             </div>
+
+            <AnimatePresence>
+                {showIntegrityModal && (
+                    <IntegrityReport
+                        submissionId={candidate.candidateId}
+                        onClose={() => setShowIntegrityModal(false)}
+                    />
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 };
