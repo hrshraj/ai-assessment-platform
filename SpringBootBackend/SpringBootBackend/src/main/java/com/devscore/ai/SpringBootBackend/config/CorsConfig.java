@@ -20,6 +20,11 @@ public class CorsConfig {
 
         config.setAllowCredentials(true);
         config.addAllowedOrigin("http://localhost:3000");
+        config.addAllowedOrigin("http://localhost:5173");
+        config.addAllowedOrigin("https://devscore-ai.vercel.app");
+        if (allowedOrigins != null && !allowedOrigins.isBlank()) {
+            config.addAllowedOrigin(allowedOrigins);
+        }
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
 
