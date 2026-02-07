@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: ai-assessment-platform
+    runtime: docker
+    plan: free
+    envVars:
+      - key: LLM_PROVIDER
+        value: groq
+      - key: GROQ_API_KEY
+        sync: false  # You'll set this manually in Render dashboard
+      - key: GROQ_MODEL
+        value: llama-3.1-8b-instant
+      - key: GROQ_CODING_MODEL
+        value: llama-3.1-8b-instant
+      - key: DATABASE_URL
+        value: sqlite:///./assessment.db
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: ALGORITHM
+        value: HS256
