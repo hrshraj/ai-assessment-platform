@@ -1,87 +1,45 @@
 """Pydantic schemas for API request/response validation."""
 from pydantic import BaseModel, Field
-from typing import Optional
-from datetime import datetime
+from typing import List, Optional, Dict, Any, Union
 
+# ─── Common Models ─────────────────────────────────────────────
 
-# ─── Auth ──────────────────────────────────────────────────────
-
-class UserRegister(BaseModel):
-    email: str
-    password: str
-    full_name: str
-    role: str = "candidate"  # "candidate" or "recruiter"
-
-
-class UserLogin(BaseModel):
-    email: str
-    password: str
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user_id: str
-    role: str
-
-
-# ─── Job Description ──────────────────────────────────────────
-
-class JDCreateRequest(BaseModel):
-    title: str
-    raw_text: str
-
-
-class JDResponse(BaseModel):
+# This represents a Question sent FROM Spring Boot TO Python
+class QuestionContext(BaseModel):
     id: str
-    title: str
-    parsed_data: dict
-    status: str
+    type: str  # "MCQ", "SUBJECTIVE", "CODING"
+    text: str
+    # MCQ Fields
+    options: Optional[List[str]] = None
+    correct_answer: Optional[str] = None
+    points: float = 10.0
+    # Subjective Fields
+    rubric: Optional[Dict] = None
+    expected_answer_points: Optional[List[str]] = None
+    # Coding Fields
+    test_cases: Optional[List[Dict]] = None # [{"input": "...", "expected_output": "..."}]
 
+# This represents the Candidate's Answer sent FROM Spring Boot
+class CandidateAnswer(BaseModel):
+    question_id: str
+    user_answer: str
+    language: Optional[str] = "python" # For coding
 
-# ─── Assessment ────────────────────────────────────────────────
-
-class AssessmentCreateRequest(BaseModel):
-    jd_id: str
-    mcq_count: Optional[int] = None
-    subjective_count: Optional[int] = None
-    coding_count: Optional[int] = None
-    duration_minutes: Optional[int] = None
-    cutoff_percentage: float = 50.0
-    custom_difficulty: Optional[dict] = None
-
-
-class AssessmentResponse(BaseModel):
-    id: str
-    title: str
-    duration_minutes: int
-    total_points: float
-    mcq_count: int
-    subjective_count: int
-    coding_count: int
-    skill_coverage: dict
-    difficulty_distribution: dict
-
-
-# ─── Candidate Submission ──────────────────────────────────────
-
-class StartAssessmentRequest(BaseModel):
+# The Full Request Payload
+class EvaluationRequest(BaseModel):
+    candidate_id: str
     assessment_id: str
-    candidate_id: str
+    questions: List[QuestionContext]
+    answers: List[CandidateAnswer]
 
+# ─── Response Models ───────────────────────────────────────────
 
-class SubmitAnswersRequest(BaseModel):
-    submission_id: str
-    candidate_id: str
-    mcq_answers: list[dict] = []
-    # [{"question_id": "mcq_1", "selected_answer": "B", "time_taken_seconds": 45}]
-    subjective_answers: dict = {}
-    # {"subj_1": "My answer text...", "subj_2": "..."}
-    coding_answers: dict = {}
-    # {"code_1": {"code": "def solution()...", "language": "python"}}
-    response_timings: list[dict] = []
-    # [{"question_id": "mcq_1", "time_seconds": 45}]
-
+class QuestionResult(BaseModel):
+    question_id: str
+    score: float
+    max_score: float
+    feedback: str
+    status: str  # "Evaluated", "Error"
 
 class EvaluationResponse(BaseModel):
     candidate_id: str
@@ -89,42 +47,5 @@ class EvaluationResponse(BaseModel):
     total_score: float
     max_total_score: float
     percentage: float
-    section_scores: dict
-    skill_scores: dict
-    strengths: list[str]
-    weaknesses: list[str]
+    results: List[QuestionResult]
     overall_feedback: str
-    integrity_score: Optional[float] = None
-    integrity_flags: list[str] = []
-
-
-# ─── Resume ────────────────────────────────────────────────────
-
-class ResumeUploadResponse(BaseModel):
-    candidate_id: str
-    parsed_skills: list[dict]
-    total_experience_years: float
-    summary: str
-
-
-class ResumeMatchResponse(BaseModel):
-    match_percentage: float
-    matched_skills: list[dict]
-    missing_skills: list[dict]
-    overall_fit: str
-    recommendation: str
-
-
-# ─── Leaderboard & Analytics ──────────────────────────────────
-
-class LeaderboardRequest(BaseModel):
-    assessment_id: str
-    cutoff_percentage: float = 0.0
-
-
-class RecruiterDashboard(BaseModel):
-    total_jds: int
-    total_assessments: int
-    total_candidates: int
-    active_assessments: list[dict]
-    recent_completions: list[dict]
