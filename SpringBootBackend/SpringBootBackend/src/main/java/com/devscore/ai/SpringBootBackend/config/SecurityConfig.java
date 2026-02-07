@@ -16,6 +16,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.multipart.support.MultipartFilter;
+import org.springframework.core.annotation.Order;
 
 import com.devscore.ai.SpringBootBackend.service.UserDetailsServiceImpl;
 
@@ -38,6 +40,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/ping").permitAll()
+                .requestMatchers("/api/recruiter/**").hasRole("RECRUITER")
+                .requestMatchers("/api/candidate/**").hasRole("CANDIDATE")
                 .anyRequest().authenticated()
             )
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -62,6 +66,12 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(); 
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    @Order(0)
+    public MultipartFilter multipartFilter() {
+        return new MultipartFilter();
     }
 }
