@@ -57,34 +57,33 @@ public class AiIntegrationService {
         }
     }
 
-    // ... (Keep mapResponseToEntities as is, it looked fine) ...
-     private List<Question> mapResponseToEntities(AiAssessmentResponse response, Assessment assessment) {
+    private List<Question> mapResponseToEntities(AiAssessmentResponse response, Assessment assessment) {
         List<Question> questions = new ArrayList<>();
+        ObjectMapper mapper = new ObjectMapper();
 
-        // Map MCQs
-if (response.subjectiveQuestions() != null) {
-        response.subjectiveQuestions().forEach(q -> {
-            Question question = new Question();
-            question.setQuestionText(q.question());
-            question.setType(Question.QuestionType.SUBJECTIVE);
-            question.setAssessment(assessment);
-            
-            // CAPTURE THE DATA
-            try {
-                // Assuming 'q' has a 'rubric' map and 'expected_answer' list in the response DTO
-                // You might need to update AiAssessmentResponse.AiQuestion record to include these fields!
-                if (q.rubric() != null) {
-                     question.setRubricJson(new ObjectMapper().writeValueAsString(q.rubric()));
+        // Map MCQ Questions
+        if (response.mcqQuestions() != null) {
+            response.mcqQuestions().forEach(q -> {
+                Question question = new Question();
+                question.setQuestionText(q.question());
+                question.setType(Question.QuestionType.MCQ);
+                question.setAssessment(assessment);
+                question.setCorrectAnswer(q.correctAnswer());
+                question.setScoreWeight(10);
+                try {
+                    if (q.options() != null) {
+                        // Extract option text from list of maps
+                        List<String> optionTexts = q.options().stream()
+                            .map(opt -> opt.getOrDefault("text", opt.toString()).toString())
+                            .toList();
+                        question.setOptionsJson(mapper.writeValueAsString(optionTexts));
+                    }
+                } catch (JsonProcessingException e) {
+                    // fallback
                 }
-                if (q.expectedAnswerPoints() != null) {
-                     question.setExpectedAnswerJson(new ObjectMapper().writeValueAsString(q.expectedAnswerPoints()));
-                }
-            } catch (JsonProcessingException e) {
-                // Log error
-            }
-            questions.add(question);
-        });
-    }
+                questions.add(question);
+            });
+        }
 
         // Map Subjective Questions
         if (response.subjectiveQuestions() != null) {
@@ -93,18 +92,36 @@ if (response.subjectiveQuestions() != null) {
                 question.setQuestionText(q.question());
                 question.setType(Question.QuestionType.SUBJECTIVE);
                 question.setAssessment(assessment);
+                question.setScoreWeight(25);
+                try {
+                    if (q.rubric() != null) {
+                        question.setRubricJson(mapper.writeValueAsString(q.rubric()));
+                    }
+                    if (q.expectedAnswerPoints() != null) {
+                        question.setExpectedAnswerJson(mapper.writeValueAsString(q.expectedAnswerPoints()));
+                    }
+                } catch (JsonProcessingException e) {
+                    // Log error
+                }
                 questions.add(question);
             });
         }
 
-        // Map Coding
+        // Map Coding Questions
         if (response.codingQuestions() != null) {
             response.codingQuestions().forEach(q -> {
                 Question question = new Question();
-                question.setQuestionText(q.question()); // In Python this might be 'problem_statement'
+                question.setQuestionText(q.question());
                 question.setType(Question.QuestionType.CODING);
-                question.setOptionsJson(q.testCases().toString()); // Store test cases in optionsJson
                 question.setAssessment(assessment);
+                question.setScoreWeight(25);
+                try {
+                    if (q.testCases() != null) {
+                        question.setOptionsJson(mapper.writeValueAsString(q.testCases()));
+                    }
+                } catch (JsonProcessingException e) {
+                    // fallback
+                }
                 questions.add(question);
             });
         }
