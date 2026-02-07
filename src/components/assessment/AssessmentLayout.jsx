@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, Mic, Code, BrainCircuit, CheckCircle, FileText, Lock, ArrowLeft } from 'lucide-react';
 import OrbitingProctor from './OrbitingProctor';

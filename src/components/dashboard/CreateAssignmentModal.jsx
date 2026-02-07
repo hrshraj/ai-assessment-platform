@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import RecruiterService from '../../services/RecruiterService';
 
 const CreateAssignmentModal = ({ isOpen, onClose }) => {
