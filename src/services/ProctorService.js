@@ -1,6 +1,6 @@
 import AuthService from './AuthService';
 
-const API_BASE_URL = 'https://ai-assessment-platform.onrender.com/api/proctor';
+const API_BASE_URL = 'https://ai-assessment-platform-1.onrender.com/api/proctor';
 
 class ProctorService {
     constructor() {

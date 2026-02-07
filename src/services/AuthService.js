@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = 'https://ai-assessment-platform-1.onrender.com';
 
 const handleResponse = async (response) => {
     const text = await response.text();
