@@ -16,4 +16,12 @@ public class SpringBootBackendApplication {
         return WebClient.builder();
     }
 
+	@Bean
+    public ObjectMapper objectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        // This module fixes issues with Java 8 dates (LocalDate, LocalDateTime)
+        mapper.registerModule(new JavaTimeModule());
+        return mapper;
+    }
+
 }
