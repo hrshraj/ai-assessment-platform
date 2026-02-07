@@ -29,7 +29,14 @@ const AuthService = {
             }
         );
 
-        return handleResponse(response);
+        const data = await handleResponse(response);
+
+        if (data.token) {
+            localStorage.setItem('auth_token', data.token);
+            localStorage.setItem('user_role', data.role);
+        }
+
+        return data;
     },
 
     login: async (email, password) => {
