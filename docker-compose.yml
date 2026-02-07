@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  # ── AI Assessment Platform API ──
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=mistral
+      - OLLAMA_CODING_MODEL=codellama
+      - DATABASE_URL=sqlite:///./assessment.db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - ollama
+      - redis
+    volumes:
+      - .:/app
+      - ./data:/app/data
+
+  # ── Ollama (Local LLM Server) ──
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # GPU support (uncomment if NVIDIA GPU available)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # ── Redis (Caching & Sessions) ──
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # ── PostgreSQL Database ──
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: codeversity_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Spring Boot Backend ──
+  backend:
+    build: ./SpringBootBackend/SpringBootBackend
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DB_URL=jdbc:postgresql://db:5432/codeversity_db
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=password
+      - JWT_SECRET=change_this_to_a_long_random_secret_here_please
+      - AI_SERVICE_URL=http://app:8000
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+
+volumes:
+  ollama_data:
+  postgres_data:
