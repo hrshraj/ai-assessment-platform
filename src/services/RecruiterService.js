@@ -4,19 +4,28 @@ const API_BASE_URL = 'https://ai-assessment-platform-1.onrender.com/api/recruite
 
 const RecruiterService = {
     /**
-     * Create assessment via AiRequest DTO
-     * @param {Object} aiRequest - Contains 'jobDescription' and 'questionCount'
+     * Create assessment from job description text (JSON body)
      */
-    createAssessment: async (formData) => {
+    createAssessment: async (data) => {
         const token = AuthService.getToken();
         try {
+            let body;
+            if (data instanceof FormData) {
+                const file = data.get('file');
+                const title = data.get('title') || 'Untitled Assessment';
+                const text = file ? await file.text() : '';
+                body = JSON.stringify({ jobDescription: text, title });
+            } else {
+                body = JSON.stringify(data);
+            }
+
             const response = await fetch(`${API_BASE_URL}/create-assessment`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    // Content-Type is set automatically for FormData
+                    'Content-Type': 'application/json',
                 },
-                body: formData
+                body
             });
 
             if (!response.ok) {
@@ -24,7 +33,8 @@ const RecruiterService = {
                 throw new Error(errorText || `Creation failed with status: ${response.status}`);
             }
 
-            return await response.text();
+            const result = await response.json();
+            return `Assessment created successfully! ID: ${result.assessmentId}`;
         } catch (error) {
             console.error('Create Assessment Error:', error);
             throw error;
@@ -32,9 +42,27 @@ const RecruiterService = {
     },
 
     /**
+     * Get all assessments created by this recruiter
+     */
+    getAssessments: async () => {
+        const token = AuthService.getToken();
+        try {
+            const response = await fetch(`${API_BASE_URL}/assessments`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+            if (!response.ok) throw new Error(`Failed: ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Get Assessments Error:', error);
+            throw error;
+        }
+    },
+
+    /**
      * Get assessment leaderboard
-     * @param {string} assessmentId 
-     * @returns {Promise<Array>} List<LeaderboardEntry>
      */
     getLeaderboard: async (assessmentId) => {
         const token = AuthService.getToken();
@@ -60,13 +88,10 @@ const RecruiterService = {
 
     /**
      * Get integrity report for a submission
-     * @param {string} submissionId 
-     * @returns {Promise<Object>} IntegrityReportDTO
      */
     getIntegrityReport: async (submissionId) => {
         const token = AuthService.getToken();
         try {
-            // Endpoint assumed based on requirement context
             const response = await fetch(`${API_BASE_URL}/submission/${submissionId}/integrity`, {
                 method: 'GET',
                 headers: {

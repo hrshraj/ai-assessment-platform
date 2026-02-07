@@ -1,12 +1,25 @@
 import AuthService from './AuthService';
 
 const API_BASE_URL = 'https://ai-assessment-platform-1.onrender.com/api/candidate';
+const PUBLIC_API_URL = 'https://ai-assessment-platform-1.onrender.com/api/public';
 
 const CandidateService = {
     /**
+     * Get all available assessments (public endpoint)
+     */
+    getAssessments: async () => {
+        try {
+            const response = await fetch(`${PUBLIC_API_URL}/assessments`);
+            if (!response.ok) throw new Error(`Failed: ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Get Assessments Error:', error);
+            throw error;
+        }
+    },
+
+    /**
      * Start an assessment
-     * @param {string} assessmentId 
-     * @returns {Promise<Object>} TestResponseDto
      */
     startTest: async (assessmentId) => {
         const token = AuthService.getToken();
@@ -33,8 +46,6 @@ const CandidateService = {
 
     /**
      * Submit assessment results
-     * @param {Object} submissionData - SubmissionRequest
-     * @returns {Promise<string>} Submission ID message
      */
     submitTest: async (submissionData) => {
         const token = AuthService.getToken();
@@ -53,9 +64,29 @@ const CandidateService = {
                 throw new Error(errorText || `Submission failed: ${response.status}`);
             }
 
-            return await response.text();
+            return await response.json();
         } catch (error) {
             console.error('Submit Test Error:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get candidate's past submissions
+     */
+    getSubmissions: async () => {
+        const token = AuthService.getToken();
+        try {
+            const response = await fetch(`${API_BASE_URL}/submissions`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+            if (!response.ok) throw new Error(`Failed: ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Get Submissions Error:', error);
             throw error;
         }
     }

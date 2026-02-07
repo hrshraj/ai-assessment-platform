@@ -6,13 +6,31 @@ import Leaderboard from './Leaderboard';
 import CandidateProfile from './CandidateProfile';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Menu, X, LayoutDashboard, Award, FileCheck, LogOut } from 'lucide-react';
+import RecruiterService from '../../services/RecruiterService';
 
 const DashboardLayout = ({ onLogout }) => {
-    const [view, setView] = useState('dashboard'); // 'dashboard', 'create', 'results', 'profile'
+    const [view, setView] = useState('dashboard');
     const [selectedCandidate, setSelectedCandidate] = useState(null);
-    const [selectedAssessmentId, setSelectedAssessmentId] = useState('1'); // Default/Latest assessment ID
+    const [assessments, setAssessments] = useState([]);
+    const [selectedAssessmentId, setSelectedAssessmentId] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    // Fetch recruiter's assessments
+    useEffect(() => {
+        const fetchAssessments = async () => {
+            try {
+                const data = await RecruiterService.getAssessments();
+                setAssessments(data);
+                if (data.length > 0 && !selectedAssessmentId) {
+                    setSelectedAssessmentId(data[0].id);
+                }
+            } catch (err) {
+                console.error('Failed to load assessments:', err);
+            }
+        };
+        fetchAssessments();
+    }, [isModalOpen]); // Refresh after creating new assessment
 
     // Handle browser back/forward navigation
     useEffect(() => {
@@ -61,7 +79,7 @@ const DashboardLayout = ({ onLogout }) => {
     const renderContent = () => {
         switch (view) {
             case 'dashboard':
-                return <DashboardOverview />;
+                return <DashboardOverview assessments={assessments} />;
             case 'create':
                 return (
                     <div className="flex flex-col items-center justify-center text-center space-y-4">
@@ -75,7 +93,25 @@ const DashboardLayout = ({ onLogout }) => {
                     </div>
                 );
             case 'results':
-                return <Leaderboard assessmentId={selectedAssessmentId} onSelectCandidate={(candidate) => { setSelectedCandidate(candidate); setView('profile'); }} />;
+                return (
+                    <div>
+                        {assessments.length > 1 && (
+                            <div className="mb-6 flex items-center gap-3">
+                                <label className="text-sm text-gray-400">Assessment:</label>
+                                <select
+                                    value={selectedAssessmentId || ''}
+                                    onChange={(e) => setSelectedAssessmentId(e.target.value)}
+                                    className="bg-black/60 border border-white/20 rounded-lg px-3 py-2 text-white text-sm"
+                                >
+                                    {assessments.map(a => (
+                                        <option key={a.id} value={a.id}>{a.title}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        <Leaderboard assessmentId={selectedAssessmentId} onSelectCandidate={(candidate) => { setSelectedCandidate(candidate); setView('profile'); }} />
+                    </div>
+                );
             case 'profile':
                 return selectedCandidate ? <CandidateProfile candidate={selectedCandidate} onBack={() => setView('results')} /> : <Leaderboard assessmentId={selectedAssessmentId} onSelectCandidate={(candidate) => { setSelectedCandidate(candidate); setView('profile'); }} />;
             default:

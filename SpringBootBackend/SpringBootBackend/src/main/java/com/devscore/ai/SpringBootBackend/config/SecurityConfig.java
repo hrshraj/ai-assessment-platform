@@ -37,7 +37,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/ping").permitAll()
-                .requestMatchers("/api/recruiter/create-assessment").permitAll()
+                .requestMatchers("/api/public/**").permitAll()
+                .requestMatchers("/api/seed/**").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

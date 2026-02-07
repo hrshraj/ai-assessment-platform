@@ -8,10 +8,14 @@ import org.springframework.data.repository.query.Param;
 
 import com.devscore.ai.SpringBootBackend.entity.Submission;
 
-public interface SubmissionRepository extends JpaRepository <Submission , String> {
+public interface SubmissionRepository extends JpaRepository<Submission, String> {
 
     @Query("SELECT s FROM Submission s WHERE s.assessment.id = :assessmentId ORDER BY s.score DESC, s.submittedAt ASC")
     List<Submission> findLeaderboardByAssessmentId(@Param("assessmentId") String assessmentId);
+
     List<Submission> findByAssessmentIdAndIdNot(String assessmentId, String excludeId);
 
+    List<Submission> findByCandidateIdOrderBySubmittedAtDesc(String candidateId);
+
+    long countByAssessmentId(String assessmentId);
 }
