@@ -1,159 +1,16 @@
-# 🧠 AI Assessment Platform
+# React + Vite
 
-> AI-powered assessment & evaluation platform to eliminate fake job applications
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## 🏗️ Architecture
+Currently, two official plugins are available:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    FRONTEND (Your Team)                      │
-│         React / HTML+CSS / Any Framework                     │
-│  ┌──────────┐  ┌──────────┐  ┌────────────┐  ┌──────────┐  │
-│  │ Recruiter│  │ Candidate│  │ Leaderboard│  │ Analytics│  │
-│  │Dashboard │  │  Portal  │  │   Board    │  │  Reports │  │
-│  └────┬─────┘  └────┬─────┘  └─────┬──────┘  └────┬─────┘  │
-└───────┼──────────────┼──────────────┼──────────────┼────────┘
-        │              │              │              │
-        ▼              ▼              ▼              ▼
-┌─────────────────── REST API (FastAPI) ──────────────────────┐
-│  /api/auth/*  /api/jd/*  /api/assessment/*  /api/candidate/*│
-│  /api/resume/*  /api/leaderboard/*  /api/analytics/*        │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-        ┌────────────────┼────────────────────┐
-        ▼                ▼                    ▼
-┌──────────────┐ ┌──────────────┐  ┌─────────────────┐
-│  AI Engine   │ │   Database   │  │     Redis        │
-│ ┌──────────┐ │ │   SQLite /   │  │  (Sessions/      │
-│ │JD Parser │ │ │  PostgreSQL  │  │   Caching)       │
-│ ├──────────┤ │ └──────────────┘  └─────────────────┘
-│ │Question  │ │
-│ │Generator │ │
-│ ├──────────┤ │         ┌─────────────────┐
-│ │Evaluator │ │ ◄──────►│   Ollama LLM    │
-│ ├──────────┤ │         │  (Mistral /     │
-│ │Anti-Cheat│ │         │   CodeLlama)    │
-│ ├──────────┤ │         └─────────────────┘
-│ │Resume    │ │
-│ │Parser    │ │
-│ ├──────────┤ │
-│ │Analytics │ │
-│ └──────────┘ │
-└──────────────┘
-```
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-## 📂 Project Structure
+## React Compiler
 
-```
-ai-assessment-platform/
-├── main.py                    # FastAPI app with ALL routes
-├── config.py                  # Configuration management
-├── .env                       # Environment variables
-├── requirements.txt           # Python dependencies
-├── Dockerfile                 # Container definition
-├── docker-compose.yml         # Full stack (App + Ollama + Redis)
-├── setup.sh                   # Quick setup script
-├── test_flow.py               # End-to-end test script
-│
-├── core/                      # 🧠 AI ENGINE (the brain)
-│   ├── llm_client.py          # Ollama LLM wrapper
-│   ├── jd_parser.py           # JD intelligence & skill extraction
-│   ├── question_generator.py  # MCQ, subjective, coding question gen
-│   ├── evaluator.py           # AI scoring & code execution
-│   ├── anti_cheat.py          # Plagiarism, resume mismatch, anomaly
-│   ├── resume_parser.py       # Resume parsing (PDF/DOCX/text)
-│   └── analytics.py           # Leaderboard, reports, skill gaps
-│
-├── api/                       # API layer
-│   ├── auth.py                # JWT authentication
-│   └── schemas.py             # Request/response models
-│
-└── models/                    # Database
-    └── database.py            # SQLAlchemy models
-```
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-## 🚀 Quick Start
+## Expanding the ESLint configuration
 
-### Option A: Docker (Recommended)
-```bash
-chmod +x setup.sh
-./setup.sh
-```
-
-### Option B: Manual
-```bash
-# 1. Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-ollama serve &
-ollama pull mistral
-ollama pull codellama
-
-# 2. Install Python deps
-pip install -r requirements.txt
-
-# 3. Run
-python main.py
-```
-
-### Test It
-```bash
-# API docs (Swagger UI)
-open http://localhost:8000/docs
-
-# Run end-to-end test
-python test_flow.py
-```
-
-## 📡 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register` | Register user |
-| POST | `/api/auth/login` | Login |
-| POST | `/api/jd/create` | Upload & parse JD |
-| GET | `/api/jd/{id}` | Get parsed JD |
-| POST | `/api/assessment/generate` | Generate assessment from JD |
-| GET | `/api/assessment/{id}/questions` | Get candidate-safe questions |
-| POST | `/api/candidate/start` | Start assessment |
-| POST | `/api/candidate/submit` | Submit answers |
-| POST | `/api/candidate/evaluate/{id}` | Run AI evaluation |
-| GET | `/api/candidate/result/{id}` | Get results |
-| POST | `/api/resume/upload` | Upload & parse resume |
-| POST | `/api/resume/match/{cid}/{jid}` | Resume-JD match |
-| POST | `/api/leaderboard/generate` | Generate rankings |
-| GET | `/api/analytics/report/{id}` | Recruiter report |
-| GET | `/api/analytics/skill-gap/{id}` | Skill gap analysis |
-| GET | `/api/dashboard` | Recruiter dashboard |
-| GET | `/health` | System health |
-
-## 🧪 Complete API Flow
-
-```
-Recruiter uploads JD
-    → AI parses skills, experience level, domain
-    → Recruiter generates assessment (customizable)
-        → AI creates MCQ + Subjective + Coding questions
-        
-Candidate starts assessment
-    → Gets questions (answers hidden)
-    → Submits responses with timing data
-    → AI evaluates:
-        ├── MCQs: auto-graded
-        ├── Subjective: rubric-based AI scoring
-        ├── Coding: execution + AI quality review
-        └── Anti-cheat: timing, plagiarism, resume mismatch
-    → Gets detailed results with feedback
-
-Recruiter views:
-    ├── Leaderboard (ranked candidates)
-    ├── Skill gap reports
-    ├── Integrity flags
-    └── Recruiter analytics dashboard
-```
-
-
-- **MCQ**: 1 point each (auto-graded)
-- **Subjective**: 10 points each (AI rubric: completeness, accuracy, clarity, depth)
-- **Coding**: 20 points each (60% test cases + 40% code quality)
-- **Skill-wise mapping**: Every question maps to skills from the JD
-- **Weighted scoring**: Skills weighted by JD priority (must_have > nice_to_have)
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
