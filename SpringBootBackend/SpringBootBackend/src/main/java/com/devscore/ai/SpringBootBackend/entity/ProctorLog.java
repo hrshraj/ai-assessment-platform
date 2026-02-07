@@ -29,7 +29,7 @@ public class ProctorLog {
 
     @Id
     @UuidGenerator
-    private Long id;
+    private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "submission_id", nullable = false)

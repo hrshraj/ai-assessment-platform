@@ -17,7 +17,7 @@ public class SubmissionAnswer {
 
     @Id
     @UuidGenerator
-    private Long id;
+    private String id;
 
     @Column(columnDefinition = "TEXT")
     private String userAnswer; 

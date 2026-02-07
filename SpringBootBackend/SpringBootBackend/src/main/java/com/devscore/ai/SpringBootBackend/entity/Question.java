@@ -19,7 +19,7 @@ public class Question {
 
     @Id
     @UuidGenerator
-    private Long id;
+    private String id;
 
     @Column(columnDefinition = "TEXT", nullable = false)
     private String questionText;
