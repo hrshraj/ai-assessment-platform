@@ -1,17 +1,16 @@
 """
-Analytics, Ranking & Leaderboard Engine
-=========================================
+Analytics, Ranking & Leaderboard Engine (Stateless)
+=====================================================
 - Candidate ranking and leaderboard generation
 - Skill gap analysis
 - Benchmark comparisons
 - Recruiter report generation
+
+All methods accept plain dicts — no database dependency.
 """
 import logging
 from typing import Optional
 from pydantic import BaseModel, Field
-
-from core.evaluator import CandidateEvaluation
-from core.anti_cheat import AntiCheatReport
 
 logger = logging.getLogger(__name__)
 
@@ -64,37 +63,44 @@ class RecruiterReport(BaseModel):
 
 
 class AnalyticsEngine:
-    """Generate rankings, reports, and analytics."""
+    """Generate rankings, reports, and analytics. All methods accept plain dicts."""
 
     def generate_leaderboard(
         self,
         assessment_id: str,
         job_title: str,
-        evaluations: list[CandidateEvaluation],
-        anti_cheat_reports: Optional[dict[str, AntiCheatReport]] = None,
+        evaluations_data: list[dict],
+        anti_cheat_data: Optional[dict[str, dict]] = None,
         cutoff_percentage: float = 0.0,
         candidate_names: Optional[dict[str, str]] = None,
     ) -> Leaderboard:
-        """Generate a ranked leaderboard from candidate evaluations."""
+        """Generate a ranked leaderboard from candidate evaluation dicts.
+
+        evaluations_data: list of EvaluationResponse-like dicts with keys:
+            candidate_id, total_score, percentage, section_scores, skill_scores, strengths
+        anti_cheat_data: {candidate_id: AntiCheatReport-like dict}
+        """
         names = candidate_names or {}
-        acr = anti_cheat_reports or {}
+        acr = anti_cheat_data or {}
 
         entries = []
-        for eval in evaluations:
-            integrity = acr.get(eval.candidate_id)
-            is_flagged = integrity.is_flagged if integrity else False
-            integrity_score = integrity.overall_integrity_score if integrity else None
+        for ev in evaluations_data:
+            cid = ev.get("candidate_id", "")
+            pct = ev.get("percentage", 0)
+            integrity_info = acr.get(cid, {})
+            is_flagged = integrity_info.get("is_flagged", False)
+            integrity_score = integrity_info.get("overall_integrity_score")
 
-            is_qualified = eval.percentage >= cutoff_percentage and not is_flagged
+            is_qualified = pct >= cutoff_percentage and not is_flagged
 
             entries.append(LeaderboardEntry(
-                rank=0,  # Will be set after sorting
-                candidate_id=eval.candidate_id,
-                candidate_name=names.get(eval.candidate_id, f"Candidate-{eval.candidate_id[:6]}"),
-                total_score=eval.total_score,
-                percentage=eval.percentage,
-                section_scores=eval.section_scores,
-                skill_scores=eval.skill_scores,
+                rank=0,
+                candidate_id=cid,
+                candidate_name=names.get(cid, f"Candidate-{cid[:6]}"),
+                total_score=ev.get("total_score", 0),
+                percentage=pct,
+                section_scores=ev.get("section_scores", {}),
+                skill_scores=ev.get("skill_scores", {}),
                 integrity_score=integrity_score,
                 is_qualified=is_qualified,
                 is_flagged=is_flagged,
@@ -128,17 +134,26 @@ class AnalyticsEngine:
 
     def generate_skill_gap_report(
         self,
-        evaluation: CandidateEvaluation,
+        candidate_id: str,
+        evaluation_data: dict,
         required_skills: dict[str, float],  # {"Python": 80.0, "SQL": 70.0}
-        all_evaluations: Optional[list[CandidateEvaluation]] = None,
+        all_evaluations_data: Optional[list[dict]] = None,
     ) -> SkillGapReport:
-        """Generate a skill gap analysis for a candidate."""
+        """Generate a skill gap analysis for a candidate.
+
+        evaluation_data: EvaluationResponse-like dict with keys:
+            candidate_id, percentage, skill_scores, strengths, etc.
+        all_evaluations_data: list of similar dicts for benchmarking.
+        """
+        skill_scores = evaluation_data.get("skill_scores", {})
+        percentage = evaluation_data.get("percentage", 0)
+
         skill_gaps = []
         strengths = []
         improvements = []
 
         for skill, required_level in required_skills.items():
-            current = evaluation.skill_scores.get(skill, 0)
+            current = skill_scores.get(skill, 0)
             gap = required_level - current
 
             skill_gaps.append({
@@ -158,24 +173,23 @@ class AnalyticsEngine:
 
         # Benchmark comparison
         benchmark = {}
-        if all_evaluations and len(all_evaluations) > 1:
-            avg_score = sum(e.percentage for e in all_evaluations) / len(all_evaluations)
-            top_scores = sorted([e.percentage for e in all_evaluations], reverse=True)
-            top_10_avg = sum(top_scores[:max(1, len(top_scores)//10)]) / max(1, len(top_scores)//10)
+        if all_evaluations_data and len(all_evaluations_data) > 1:
+            all_pcts = [e.get("percentage", 0) for e in all_evaluations_data]
+            avg_score = sum(all_pcts) / len(all_pcts)
+            top_scores = sorted(all_pcts, reverse=True)
+            top_10_avg = sum(top_scores[:max(1, len(top_scores) // 10)]) / max(1, len(top_scores) // 10)
 
             benchmark = {
-                "candidate_score": evaluation.percentage,
+                "candidate_score": percentage,
                 "average_score": round(avg_score, 1),
-                "vs_average": round(evaluation.percentage - avg_score, 1),
+                "vs_average": round(percentage - avg_score, 1),
                 "top_10_percent_avg": round(top_10_avg, 1),
-                "vs_top_10": round(evaluation.percentage - top_10_avg, 1),
-                "percentile": self._calculate_percentile(
-                    evaluation.percentage, [e.percentage for e in all_evaluations]
-                ),
+                "vs_top_10": round(percentage - top_10_avg, 1),
+                "percentile": self._calculate_percentile(percentage, all_pcts),
             }
 
         return SkillGapReport(
-            candidate_id=evaluation.candidate_id,
+            candidate_id=candidate_id,
             skill_gaps=skill_gaps,
             strengths=strengths,
             improvement_areas=improvements,
@@ -186,17 +200,21 @@ class AnalyticsEngine:
         self,
         assessment_id: str,
         job_title: str,
-        evaluations: list[CandidateEvaluation],
-        anti_cheat_reports: Optional[dict[str, AntiCheatReport]] = None,
+        evaluations_data: list[dict],
+        anti_cheat_data: Optional[dict[str, dict]] = None,
         total_registered: int = 0,
         cutoff_percentage: float = 50.0,
     ) -> RecruiterReport:
-        """Generate a comprehensive report for recruiters."""
-        acr = anti_cheat_reports or {}
-        total_applicants = total_registered or len(evaluations)
-        completion_rate = len(evaluations) / total_applicants * 100 if total_applicants > 0 else 0
+        """Generate a comprehensive report for recruiters.
 
-        scores = [e.percentage for e in evaluations]
+        evaluations_data: list of EvaluationResponse-like dicts.
+        anti_cheat_data: {candidate_id: AntiCheatReport-like dict}
+        """
+        acr = anti_cheat_data or {}
+        total_applicants = total_registered or len(evaluations_data)
+        completion_rate = len(evaluations_data) / total_applicants * 100 if total_applicants > 0 else 0
+
+        scores = [e.get("percentage", 0) for e in evaluations_data]
         avg_score = sum(scores) / len(scores) if scores else 0
 
         # Score distribution
@@ -209,24 +227,21 @@ class AnalyticsEngine:
             else: buckets["80-100"] += 1
 
         # Skills coverage across all candidates
-        all_skills = {}
-        for eval in evaluations:
-            for skill, score in eval.skill_scores.items():
-                if skill not in all_skills:
-                    all_skills[skill] = []
-                all_skills[skill].append(score)
-        top_skills = {k: round(sum(v)/len(v), 1) for k, v in all_skills.items()}
+        all_skills: dict[str, list[float]] = {}
+        for ev in evaluations_data:
+            for skill, score in ev.get("skill_scores", {}).items():
+                all_skills.setdefault(skill, []).append(score)
+        top_skills = {k: round(sum(v) / len(v), 1) for k, v in all_skills.items()}
 
         # Shortlisted candidates
-        qualified = [e for e in evaluations if e.percentage >= cutoff_percentage]
-        qualified.sort(key=lambda e: -e.percentage)
+        qualified = [e for e in evaluations_data if e.get("percentage", 0) >= cutoff_percentage]
+        qualified.sort(key=lambda e: -e.get("percentage", 0))
         shortlisted = [
             {
-                "candidate_id": e.candidate_id,
-                "score": e.percentage,
-                "strengths": e.strengths[:3],
-                "integrity": acr[e.candidate_id].overall_integrity_score
-                if e.candidate_id in acr else None,
+                "candidate_id": e.get("candidate_id", ""),
+                "score": e.get("percentage", 0),
+                "strengths": e.get("strengths", [])[:3],
+                "integrity": acr.get(e.get("candidate_id", ""), {}).get("overall_integrity_score"),
             }
             for e in qualified[:20]
         ]
@@ -235,14 +250,14 @@ class AnalyticsEngine:
         flagged = [
             {
                 "candidate_id": cid,
-                "flags": [f.description for f in report.flags[:3]],
-                "integrity_score": report.overall_integrity_score,
+                "flags": [f.get("description", "") for f in report.get("flags", [])[:3]],
+                "integrity_score": report.get("overall_integrity_score"),
             }
-            for cid, report in acr.items() if report.is_flagged
+            for cid, report in acr.items() if report.get("is_flagged", False)
         ]
 
         recommendations = self._generate_recommendations(
-            len(evaluations), avg_score, len(qualified), len(flagged)
+            len(evaluations_data), avg_score, len(qualified), len(flagged)
         )
 
         return RecruiterReport(
@@ -268,7 +283,7 @@ class AnalyticsEngine:
         sorted_scores = sorted(scores)
         n = len(sorted_scores)
         mean = sum(scores) / n
-        median = sorted_scores[n // 2] if n % 2 else (sorted_scores[n//2 - 1] + sorted_scores[n//2]) / 2
+        median = sorted_scores[n // 2] if n % 2 else (sorted_scores[n // 2 - 1] + sorted_scores[n // 2]) / 2
         variance = sum((s - mean) ** 2 for s in scores) / n
         std_dev = variance ** 0.5
 

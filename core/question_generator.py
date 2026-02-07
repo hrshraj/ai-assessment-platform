@@ -10,6 +10,7 @@ Questions are weighted by skill priority and adapted to experience level.
 """
 import logging
 import json
+import uuid
 from typing import Optional
 from pydantic import BaseModel, Field
 
@@ -289,7 +290,6 @@ class QuestionGenerator:
         for d in all_difficulties:
             diff_dist[d] = diff_dist.get(d, 0) + 1
 
-        import uuid
         assessment = Assessment(
             id=str(uuid.uuid4()),
             job_title=parsed_jd.job_title,

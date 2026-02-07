@@ -1,23 +1,23 @@
 """
-Anti-Cheat & Fraud Detection Engine
-=====================================
+Anti-Cheat & Fraud Detection Engine (Stateless)
+=================================================
 Detects:
 1. Resume-skill mismatches (resume claims vs assessment performance)
-2. Plagiarism / code similarity between candidates
+2. Plagiarism / code similarity between candidates (via MinHash fingerprints)
 3. Anomaly detection (suspicious timing, random guessing)
 4. Bot detection patterns
 5. Copy-paste detection
+
+All methods accept plain dicts — no database dependency.
 """
 import logging
 import json
 import re
-import hashlib
 from typing import Optional
 from collections import Counter
 from pydantic import BaseModel, Field
 
 from core.llm_client import llm_client
-from core.evaluator import CandidateEvaluation
 from config import settings
 from datasketch import MinHash
 
@@ -25,14 +25,6 @@ logger = logging.getLogger(__name__)
 
 
 # ─── Models ────────────────────────────────────────────────────
-
-class ResumeAnalysis(BaseModel):
-    claimed_skills: list[dict]  # [{"name": "Python", "level": "expert", "years": 3}]
-    experience_years: float
-    education: list[str]
-    projects: list[str]
-    certifications: list[str]
-
 
 class CheatFlag(BaseModel):
     flag_type: str  # "resume_mismatch", "plagiarism", "timing_anomaly", "random_guess", "bot_pattern"
@@ -67,12 +59,12 @@ RESUME TEXT:
 Return JSON:
 {{
     "claimed_skills": [
-        {{"name": "Python", "level": "expert|advanced|intermediate|beginner", "years": 3}},
+        {{"name": "Python", "level": "expert|advanced|intermediate|beginner", "years": 3}}
     ],
     "experience_years": 5.0,
     "education": ["B.Tech CS from IIT Delhi"],
-    "projects": ["Project description 1", "Project description 2"],
-    "certifications": ["AWS Certified", "Google Cloud"]
+    "projects": ["Project description 1"],
+    "certifications": ["AWS Certified"]
 }}
 """
 
@@ -85,8 +77,6 @@ ASSESSMENT PERFORMANCE:
 - Overall: {overall_pct}%
 - Skill-wise scores: {skill_scores}
 
-JOB TITLE: {job_title}
-
 Return JSON:
 {{
     "match_score": <float 0-100>,
@@ -96,10 +86,10 @@ Return JSON:
             "claimed_level": "expert",
             "assessed_level": "beginner",
             "gap_severity": "high",
-            "explanation": "Claimed 5 years of Python but scored 20% on Python questions"
+            "explanation": "Claimed 5 years but scored 20%"
         }}
     ],
-    "overall_assessment": "brief summary of resume vs performance alignment"
+    "overall_assessment": "brief summary"
 }}
 """
 
@@ -107,48 +97,45 @@ Return JSON:
 # ─── Anti-Cheat Engine ────────────────────────────────────────
 
 class AntiCheatEngine:
-    """Comprehensive anti-cheat and fraud detection system."""
+    """Stateless anti-cheat and fraud detection system."""
 
     def __init__(self):
         self.llm = llm_client
 
     def generate_fingerprint(self, code_text: str) -> list[int]:
-        """
-        Generates a stateless MinHash signature for the code.
-        Returns a list of integers that represents the code structure.
-        """
-        # 1. Tokenize (Simple N-gram shingling)
+        """Generate a MinHash signature for code plagiarism detection."""
         tokens = code_text.split()
         shingles = set()
         for i in range(len(tokens) - 4):
-            shingle = " ".join(tokens[i:i+5]) # 5-word window
+            shingle = " ".join(tokens[i:i+5])
             shingles.add(shingle)
 
-        # 2. MinHash
-        m = MinHash(num_perm=128) # 128 integer signature
+        m = MinHash(num_perm=128)
         for s in shingles:
             m.update(s.encode('utf8'))
-            
-        # 3. Return as list of integers (Java friendly)
-        return [int(x) for x in m.hashvalues]    
+
+        return [int(x) for x in m.hashvalues]
 
     async def full_integrity_check(
         self,
         candidate_id: str,
         assessment_id: str,
-        evaluation: CandidateEvaluation,
+        evaluation_data: dict,  # {"percentage": 85, "skill_scores": {...}, "results": [...]}
         resume_text: Optional[str] = None,
         response_timings: Optional[list[dict]] = None,
         all_candidate_codes: Optional[dict[str, list[str]]] = None,
     ) -> AntiCheatReport:
         """Run all anti-cheat checks and produce a report."""
         flags = []
+        percentage = evaluation_data.get("percentage", 0)
+        skill_scores = evaluation_data.get("skill_scores", {})
+        results = evaluation_data.get("results", [])
 
         # 1. Resume-skill mismatch detection
         resume_match_score = None
         if resume_text:
             resume_flags, resume_match_score = await self.check_resume_mismatch(
-                resume_text, evaluation
+                resume_text, percentage, skill_scores
             )
             flags.extend(resume_flags)
 
@@ -159,7 +146,8 @@ class AntiCheatEngine:
             flags.extend(timing_flags)
 
         # 3. Random guessing detection (MCQ)
-        guess_flags = self.check_random_guessing(evaluation)
+        mcq_results = [r for r in results if r.get("question_type", "").upper() == "MCQ"]
+        guess_flags = self.check_random_guessing(mcq_results)
         flags.extend(guess_flags)
 
         # 4. Code plagiarism detection (cross-candidate)
@@ -170,8 +158,9 @@ class AntiCheatEngine:
             )
             flags.extend(plag_flags)
 
-        # 5. Copy-paste / identical pattern detection
-        paste_flags = self.check_copy_paste_patterns(evaluation)
+        # 5. Copy-paste pattern detection
+        subj_results = [r for r in results if r.get("question_type", "").upper() == "SUBJECTIVE"]
+        paste_flags = self.check_copy_paste_patterns(subj_results)
         flags.extend(paste_flags)
 
         # Calculate overall integrity score
@@ -204,7 +193,7 @@ class AntiCheatEngine:
     # ── Resume Mismatch Detection ──
 
     async def check_resume_mismatch(
-        self, resume_text: str, evaluation: CandidateEvaluation
+        self, resume_text: str, percentage: float, skill_scores: dict
     ) -> tuple[list[CheatFlag], float]:
         """Check if resume claims align with assessment performance."""
         flags = []
@@ -222,9 +211,8 @@ class AntiCheatEngine:
         mismatch_result = await self.llm.generate_json(
             prompt=RESUME_MISMATCH_PROMPT.format(
                 resume_claims=resume_claims,
-                overall_pct=evaluation.percentage,
-                skill_scores=json.dumps(evaluation.skill_scores, indent=2),
-                job_title="",
+                overall_pct=percentage,
+                skill_scores=json.dumps(skill_scores, indent=2),
             ),
             system_prompt="Analyze resume vs performance mismatch. Respond in JSON.",
             temperature=0.2,
@@ -246,7 +234,6 @@ class AntiCheatEngine:
                         "skill": mm.get("skill"),
                         "claimed": mm.get("claimed_level"),
                         "assessed": mm.get("assessed_level"),
-                        "skill_score": evaluation.skill_scores.get(mm.get("skill", ""), 0),
                     },
                     confidence=0.75,
                 ))
@@ -284,7 +271,7 @@ class AntiCheatEngine:
                 flag_type="timing_anomaly",
                 severity=severity,
                 description=f"{fast_answers}/{len(times)} questions answered in under {settings.MIN_TIME_PER_QUESTION}s",
-                evidence={"fast_answers": fast_answers, "total": len(times), "threshold_seconds": settings.MIN_TIME_PER_QUESTION},
+                evidence={"fast_answers": fast_answers, "total": len(times)},
                 confidence=0.85,
             ))
             anomaly_score += 40
@@ -296,7 +283,7 @@ class AntiCheatEngine:
             std_dev = variance ** 0.5
             cv = std_dev / avg_time if avg_time > 0 else 0
 
-            if cv < 0.1:  # Very uniform timing = suspicious
+            if cv < 0.1:
                 flags.append(CheatFlag(
                     flag_type="bot_pattern",
                     severity="high",
@@ -306,54 +293,21 @@ class AntiCheatEngine:
                 ))
                 anomaly_score += 30
 
-        # Check for sudden speed changes (might be looking up answers)
-        for i in range(1, len(times)):
-            if times[i] > 0 and times[i-1] > 0:
-                ratio = max(times[i], times[i-1]) / min(times[i], times[i-1])
-                if ratio > 10:  # 10x speed difference between consecutive questions
-                    anomaly_score += 5
-
         return flags, min(anomaly_score, 100)
 
     # ── Random Guessing Detection ──
 
-    def check_random_guessing(
-        self, evaluation: CandidateEvaluation
-    ) -> list[CheatFlag]:
+    def check_random_guessing(self, mcq_results: list[dict]) -> list[CheatFlag]:
         """Detect random guessing patterns in MCQ answers."""
         flags = []
-        mcq_results = evaluation.mcq_results
 
         if len(mcq_results) < 5:
             return flags
 
-        # Check answer distribution
-        answers = [r.selected_answer for r in mcq_results if r.selected_answer]
-        if not answers:
-            flags.append(CheatFlag(
-                flag_type="random_guess",
-                severity="critical",
-                description="No MCQ answers provided",
-                evidence={"answered": 0, "total": len(mcq_results)},
-                confidence=0.95,
-            ))
-            return flags
-
-        # Check for same answer pattern (all A's, all B's, etc.)
-        counter = Counter(answers)
-        most_common_pct = counter.most_common(1)[0][1] / len(answers) if answers else 0
-        if most_common_pct > 0.7 and len(answers) > 5:
-            flags.append(CheatFlag(
-                flag_type="random_guess",
-                severity="high",
-                description=f"Same answer selected for {most_common_pct*100:.0f}% of MCQs (likely guessing)",
-                evidence={"distribution": dict(counter), "most_common_pct": round(most_common_pct, 2)},
-                confidence=0.75,
-            ))
-
-        # Check if accuracy is close to random (25% for 4 options)
-        correct = sum(1 for r in mcq_results if r.is_correct)
+        # Check accuracy
+        correct = sum(1 for r in mcq_results if r.get("score", 0) > 0)
         accuracy = correct / len(mcq_results)
+
         if accuracy <= 0.3 and len(mcq_results) >= 8:
             flags.append(CheatFlag(
                 flag_type="random_guess",
@@ -370,7 +324,7 @@ class AntiCheatEngine:
     def check_code_plagiarism(
         self, candidate_id: str, all_candidate_codes: dict[str, list[str]]
     ) -> tuple[list[CheatFlag], float]:
-        """Detect code similarity between candidates."""
+        """Detect code similarity between candidates using rapidfuzz."""
         from rapidfuzz import fuzz
 
         flags = []
@@ -385,11 +339,8 @@ class AntiCheatEngine:
                 continue
             for my_code in my_codes:
                 for other_code in other_codes:
-                    # Normalize code (remove whitespace, comments)
                     norm_mine = self._normalize_code(my_code)
                     norm_other = self._normalize_code(other_code)
-
-                    # Token-level similarity
                     similarity = fuzz.ratio(norm_mine, norm_other) / 100.0
 
                     if similarity > max_similarity:
@@ -400,11 +351,7 @@ class AntiCheatEngine:
                             flag_type="plagiarism",
                             severity="critical" if similarity > 0.95 else "high",
                             description=f"Code similarity of {similarity*100:.1f}% with candidate {other_id[:8]}...",
-                            evidence={
-                                "similarity": round(similarity, 3),
-                                "other_candidate": other_id[:8],
-                                "threshold": settings.PLAGIARISM_THRESHOLD,
-                            },
+                            evidence={"similarity": round(similarity, 3), "other_candidate": other_id[:8]},
                             confidence=0.9,
                         ))
 
@@ -412,35 +359,20 @@ class AntiCheatEngine:
 
     # ── Copy-Paste Detection ──
 
-    def check_copy_paste_patterns(
-        self, evaluation: CandidateEvaluation
-    ) -> list[CheatFlag]:
+    def check_copy_paste_patterns(self, subjective_results: list[dict]) -> list[CheatFlag]:
         """Detect signs of copy-paste in subjective answers."""
         flags = []
 
-        for result in evaluation.subjective_results:
-            text = result.answer_text
-            if not text:
-                continue
-
-            # Check for unusually formatted text (markdown, HTML, etc.)
-            if re.search(r'<[a-z]+[^>]*>', text) or text.count('```') > 2:
+        for result in subjective_results:
+            feedback = result.get("feedback", "")
+            # Check for unusually formatted text in answers
+            if re.search(r'<[a-z]+[^>]*>', feedback) or feedback.count('```') > 2:
                 flags.append(CheatFlag(
                     flag_type="copy_paste",
                     severity="medium",
-                    description=f"Answer to {result.question_id} contains formatting suggesting copy-paste from external source",
-                    evidence={"has_html": bool(re.search(r'<[a-z]+[^>]*>', text)), "code_blocks": text.count('```')},
+                    description=f"Answer to {result.get('question_id', '?')} contains formatting suggesting copy-paste",
+                    evidence={"question_id": result.get("question_id")},
                     confidence=0.5,
-                ))
-
-            # Check for references to sources
-            if re.search(r'(according to|source:|reference:|from .+\.com)', text, re.I):
-                flags.append(CheatFlag(
-                    flag_type="copy_paste",
-                    severity="low",
-                    description=f"Answer to {result.question_id} contains external references",
-                    evidence={"question_id": result.question_id},
-                    confidence=0.4,
                 ))
 
         return flags
@@ -448,13 +380,10 @@ class AntiCheatEngine:
     # ── Helpers ──
 
     def _normalize_code(self, code: str) -> str:
-        """Normalize code for comparison by removing comments, whitespace, variable names."""
-        # Remove single-line comments
+        """Normalize code for comparison."""
         code = re.sub(r'//.*$', '', code, flags=re.MULTILINE)
         code = re.sub(r'#.*$', '', code, flags=re.MULTILINE)
-        # Remove multi-line comments
         code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)
-        # Normalize whitespace
         code = re.sub(r'\s+', ' ', code).strip()
         return code.lower()
 
@@ -464,16 +393,13 @@ class AntiCheatEngine:
     ) -> float:
         """Calculate overall integrity score (100 = fully clean)."""
         score = 100.0
-
         severity_penalties = {"low": 5, "medium": 10, "high": 20, "critical": 35}
         for flag in flags:
             score -= severity_penalties.get(flag.severity, 5)
 
-        # Resume mismatch penalty
         if resume_match is not None and resume_match < 50:
             score -= (50 - resume_match) * 0.3
 
-        # Plagiarism penalty
         if plagiarism_score > settings.PLAGIARISM_THRESHOLD:
             score -= 30
 
