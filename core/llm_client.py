@@ -6,6 +6,7 @@ Set LLM_PROVIDER=ollama (default) for local Ollama.
 import json
 import re
 import logging
+import asyncio
 from typing import Optional
 import httpx
 
@@ -115,25 +116,38 @@ class LLMClient:
             "Content-Type": "application/json",
         }
 
-        try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                response = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    json=payload,
-                    headers=headers,
-                )
-                response.raise_for_status()
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
-        except httpx.TimeoutException:
-            logger.error(f"Groq request timed out for model {model}")
-            raise TimeoutError("Groq API request timed out.")
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Groq HTTP error: {e.response.status_code} - {e.response.text[:300]}")
-            raise
-        except Exception as e:
-            logger.error(f"Groq error: {e}")
-            raise
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    response = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        json=payload,
+                        headers=headers,
+                    )
+                    response.raise_for_status()
+                    result = response.json()
+                    return result["choices"][0]["message"]["content"]
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 429 and attempt < max_retries - 1:
+                    retry_after = e.response.headers.get("retry-after")
+                    wait_time = float(retry_after) if retry_after else min(2 ** attempt * 3, 60)
+                    logger.warning(
+                        f"Groq rate limited (attempt {attempt+1}/{max_retries}). "
+                        f"Waiting {wait_time:.0f}s..."
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
+                logger.error(f"Groq HTTP error: {e.response.status_code} - {e.response.text[:300]}")
+                raise
+            except httpx.TimeoutException:
+                logger.error(f"Groq request timed out for model {model}")
+                raise TimeoutError("Groq API request timed out.")
+            except Exception as e:
+                logger.error(f"Groq error: {e}")
+                raise
+
+        raise TimeoutError(f"Groq rate limit: still limited after {max_retries} retries")
 
     async def generate_json(
         self,
