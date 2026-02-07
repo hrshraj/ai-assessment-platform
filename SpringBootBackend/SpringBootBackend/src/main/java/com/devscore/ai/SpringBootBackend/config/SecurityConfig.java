@@ -40,8 +40,6 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/ping").permitAll()
-                .requestMatchers("/api/recruiter/**").hasRole("RECRUITER")
-                .requestMatchers("/api/candidate/**").hasRole("CANDIDATE")
                 .anyRequest().authenticated()
             )
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

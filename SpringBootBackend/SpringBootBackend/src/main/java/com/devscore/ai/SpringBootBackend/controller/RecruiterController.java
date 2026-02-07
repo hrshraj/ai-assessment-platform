@@ -25,7 +25,6 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/recruiter")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('RECRUITER')")
 public class RecruiterController {
 
     private final AssessmentService assessmentService;
@@ -36,12 +35,19 @@ public class RecruiterController {
     public ResponseEntity<?> createAssessment(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
-            Authentication authentication 
+            Authentication authentication
     ) {
+        if (authentication == null) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
 
         String email = authentication.getName();
         User recruiter = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (recruiter.getRole() != com.devscore.ai.SpringBootBackend.entity.Role.RECRUITER) {
+            return ResponseEntity.status(403).body("Only recruiters can create assessments");
+        }
 
         Assessment assessment = assessmentService.createAssessmentFromPdf(file, recruiter, title);
 
@@ -49,6 +55,7 @@ public class RecruiterController {
     }
 
     @GetMapping("/assessment/{id}/leaderboard")
+    @PreAuthorize("hasRole('RECRUITER')")
     public ResponseEntity<List<LeaderboardEntry>> getAssessmentLeaderboard(@PathVariable String id) {
         return ResponseEntity.ok(analyticsService.getLeaderboard(id));
     }
