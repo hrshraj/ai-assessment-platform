@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { BrainCircuit, Upload, Sparkles, Check, Link, Copy, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import RecruiterService from '../../services/RecruiterService';
 
 // Styled wrapper – acts as a simple div passthrough
