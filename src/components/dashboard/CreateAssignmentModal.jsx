@@ -8,6 +8,28 @@ const AntiGravityCard = ({ className, children, ...props }) => (
     <div className={className} {...props}>{children}</div>
 );
 
+// Dial-style option selector
+const DialInput = ({ label, value, onChange, options }) => (
+    <div className="flex flex-col items-center">
+        <span className="text-gray-400 text-xs uppercase tracking-widest mb-3">{label}</span>
+        <div className="flex space-x-2">
+            {options.map((opt) => (
+                <button
+                    key={opt}
+                    onClick={() => onChange(opt)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                        value === opt
+                            ? 'bg-purple-500/20 border-purple-500 text-white shadow-[0_0_15px_-5px_#a855f7]'
+                            : 'border-white/10 text-gray-400 hover:border-white/30 hover:text-white'
+                    }`}
+                >
+                    {opt}
+                </button>
+            ))}
+        </div>
+    </div>
+);
+
 const CreateAssignmentModal = ({ isOpen, onClose }) => {
     const [step, setStep] = useState(1);
     const [dragActive, setDragActive] = useState(false);
