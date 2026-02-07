@@ -1,0 +1,11 @@
+requirements.txt
+*.py
+core/
+api/
+venv/
+__pycache__/
+*.pyc
+Dockerfile
+render.yaml
+SpringBootBackend/
+test_flow.py
