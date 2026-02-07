@@ -6,10 +6,18 @@ load_dotenv()
 
 
 class Settings:
-    # Ollama
+    # LLM Provider: "ollama" or "groq"
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama")
+
+    # Ollama (local)
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "mistral")
-    OLLAMA_CODING_MODEL: str = os.getenv("OLLAMA_CODING_MODEL", "codellama")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3")
+    OLLAMA_CODING_MODEL: str = os.getenv("OLLAMA_CODING_MODEL", "llama3")
+
+    # Groq (cloud - free tier)
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    GROQ_CODING_MODEL: str = os.getenv("GROQ_CODING_MODEL", "llama-3.1-8b-instant")
 
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./assessment.db")

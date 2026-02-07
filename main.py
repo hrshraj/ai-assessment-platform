@@ -1,5 +1,8 @@
 import logging
 from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
+
 from fastapi.middleware.cors import CORSMiddleware
 from schemas import EvaluationRequest, EvaluationResponse, JdParseRequest, AssessmentGenerateRequest
 from core.evaluator import evaluator
@@ -10,7 +13,12 @@ from core.question_generator import question_generator
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ai-engine")
 
-app = FastAPI(title="Stateless AI Engine", version="2.0")
+
+app = FastAPI(
+    title="AI Hiring Intelligence Engine",
+    description="Automatically parses job descriptions, generates role-specific assessments, and evaluates candidates using AI.",
+    version="2.0"
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -61,3 +69,8 @@ async def evaluate_submission_endpoint(request: EvaluationRequest):
 @app.get("/health")
 def health_check():
     return {"status": "active", "mode": "stateless"}
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/docs")

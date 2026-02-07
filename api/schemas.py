@@ -1,45 +1,55 @@
-"""Pydantic schemas for API request/response validation."""
+# FILE: schemas.py
+
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any
 
-# ─── Common Models ─────────────────────────────────────────────
-
-# This represents a Question sent FROM Spring Boot TO Python
+# --- Existing Models (Keep these as they were) ---
 class QuestionContext(BaseModel):
     id: str
-    type: str  # "MCQ", "SUBJECTIVE", "CODING"
+    type: str 
     text: str
-    # MCQ Fields
     options: Optional[List[str]] = None
     correct_answer: Optional[str] = None
     points: float = 10.0
-    # Subjective Fields
     rubric: Optional[Dict] = None
     expected_answer_points: Optional[List[str]] = None
-    # Coding Fields
-    test_cases: Optional[List[Dict]] = None # [{"input": "...", "expected_output": "..."}]
+    test_cases: Optional[List[Dict]] = None
 
-# This represents the Candidate's Answer sent FROM Spring Boot
 class CandidateAnswer(BaseModel):
     question_id: str
     user_answer: str
-    language: Optional[str] = "python" # For coding
+    language: Optional[str] = "python"
 
-# The Full Request Payload
+# --- NEW: Resume Parsing Request ---
+class ResumeParseRequest(BaseModel):
+    resume_text: str
+    job_description_skills: Optional[List[Dict]] = None # Optional: to match against JD immediately
+
+class AssessmentGenerateRequest(BaseModel):
+    job_description_text: str
+    mcq_count: int = 5
+    subjective_count: int = 2
+    coding_count: int = 1
+
+# --- UPDATED: Evaluation Request (Now includes Anti-Cheat Data) ---
 class EvaluationRequest(BaseModel):
     candidate_id: str
     assessment_id: str
     questions: List[QuestionContext]
     answers: List[CandidateAnswer]
+    # NEW FIELDS FOR ANTI-CHEAT
+    resume_text: Optional[str] = None
+    response_timings: Optional[List[Dict]] = None  # [{"question_id": "q1", "time_seconds": 45}]
+    browser_events: Optional[List[Dict]] = None    # Copy-paste logs, tab switches
+    webcam_snapshots: Optional[List[str]] = None   # Base64 strings (if you are sending them)
 
-# ─── Response Models ───────────────────────────────────────────
-
+# --- Response Models (Keep existing) ---
 class QuestionResult(BaseModel):
     question_id: str
     score: float
     max_score: float
     feedback: str
-    status: str  # "Evaluated", "Error"
+    status: str
 
 class EvaluationResponse(BaseModel):
     candidate_id: str
@@ -49,3 +59,5 @@ class EvaluationResponse(BaseModel):
     percentage: float
     results: List[QuestionResult]
     overall_feedback: str
+    integrity_score: Optional[float] = None # NEW: Return integrity score to Java
+    integrity_flags: Optional[List[str]] = None # NEW: Return flags

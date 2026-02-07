@@ -35,6 +35,14 @@ public class Question {
 
     private Integer scoreWeight; 
 
+    // FIX 1: Store the Rubric and Expected Answer so we can send it back for grading later
+
+    @Column(columnDefinition = "TEXT")
+    private String rubricJson; // Stores {"clarity": 2, "accuracy": 3}
+
+    @Column(columnDefinition = "TEXT")
+    private String expectedAnswerJson;
+
     @ManyToOne
     @JoinColumn(name = "assessment_id")
     private Assessment assessment;
