@@ -19,9 +19,8 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowCredentials(true);
-        config.addAllowedOrigin("http://localhost:3000");
-        config.addAllowedOrigin("http://localhost:5173");
-        config.addAllowedOrigin("https://devscore-ai.vercel.app");
+        config.addAllowedOriginPattern("http://localhost:*");
+        config.addAllowedOriginPattern("https://*.vercel.app");
         if (allowedOrigins != null && !allowedOrigins.isBlank()) {
             config.addAllowedOrigin(allowedOrigins);
         }
