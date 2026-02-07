@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import RecruiterService from '../../services/RecruiterService';
 
+// Styled wrapper – acts as a simple div passthrough
+const AntiGravityCard = ({ className, children, ...props }) => (
+    <div className={className} {...props}>{children}</div>
+);
+
 const CreateAssignmentModal = ({ isOpen, onClose }) => {
     const [step, setStep] = useState(1);
     const [dragActive, setDragActive] = useState(false);
