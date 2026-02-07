@@ -1,5 +1,6 @@
 # ─── Stage 1: Build ───
-FROM maven:3.8.5-openjdk-21 AS build
+# USE THIS TAG INSTEAD:
+FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /app
 
 # Copy pom.xml and download dependencies (cache layer)
@@ -11,6 +12,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # ─── Stage 2: Run ───
+# This tag is correct for the runtime
 FROM eclipse-temurin:21-jdk-alpine
 WORKDIR /app
 
@@ -20,7 +22,7 @@ COPY --from=build /app/target/*.jar app.jar
 # Expose the port
 EXPOSE 8080
 
-# Environment variables (Defaults, can be overridden)
+# Environment variables
 ENV PORT=8080
 ENV DB_URL=jdbc:postgresql://db:5432/codeversity_db
 ENV DB_USERNAME=postgres
