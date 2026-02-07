@@ -37,15 +37,24 @@ public class RecruiterController {
             @RequestParam("title") String title,
             Authentication authentication
     ) {
+        System.out.println("=== CREATE ASSESSMENT ENDPOINT HIT ===");
+        System.out.println("Authentication: " + authentication);
+
         if (authentication == null) {
+            System.out.println("Auth is NULL - returning 401");
             return ResponseEntity.status(401).body("Not authenticated");
         }
 
         String email = authentication.getName();
+        System.out.println("Email from token: " + email);
+
         User recruiter = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        System.out.println("User role from DB: " + recruiter.getRole());
+
         if (recruiter.getRole() != com.devscore.ai.SpringBootBackend.entity.Role.RECRUITER) {
+            System.out.println("Role mismatch - returning 403");
             return ResponseEntity.status(403).body("Only recruiters can create assessments");
         }
 
