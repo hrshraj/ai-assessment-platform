@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from core.llm_client import llm_client
 from core.evaluator import CandidateEvaluation
 from config import settings
+from datasketch import MinHash
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,26 @@ class AntiCheatEngine:
 
     def __init__(self):
         self.llm = llm_client
+
+    def generate_fingerprint(self, code_text: str) -> list[int]:
+        """
+        Generates a stateless MinHash signature for the code.
+        Returns a list of integers that represents the code structure.
+        """
+        # 1. Tokenize (Simple N-gram shingling)
+        tokens = code_text.split()
+        shingles = set()
+        for i in range(len(tokens) - 4):
+            shingle = " ".join(tokens[i:i+5]) # 5-word window
+            shingles.add(shingle)
+
+        # 2. MinHash
+        m = MinHash(num_perm=128) # 128 integer signature
+        for s in shingles:
+            m.update(s.encode('utf8'))
+            
+        # 3. Return as list of integers (Java friendly)
+        return [int(x) for x in m.hashvalues]    
 
     async def full_integrity_check(
         self,

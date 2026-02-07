@@ -12,5 +12,6 @@ public interface SubmissionRepository extends JpaRepository <Submission , String
 
     @Query("SELECT s FROM Submission s WHERE s.assessment.id = :assessmentId ORDER BY s.score DESC, s.submittedAt ASC")
     List<Submission> findLeaderboardByAssessmentId(@Param("assessmentId") String assessmentId);
+    List<Submission> findByAssessmentIdAndIdNot(String assessmentId, String excludeId);
 
 }
