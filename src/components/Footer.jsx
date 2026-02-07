@@ -4,7 +4,7 @@ import { Mail, Phone, MapPin, Linkedin, Twitter, Github, Code2 } from 'lucide-re
 const Footer = ({ onNavigate }) => {
     return (
         <footer className="w-full bg-black border-t border-white/10 py-8">
-            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-6">
+            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 px-6">
                 {/* Brand */}
                 <div className="space-y-4">
                     <div className="flex items-center space-x-2">
@@ -28,6 +28,18 @@ const Footer = ({ onNavigate }) => {
                         <a href="#" className="text-gray-400 hover:text-white transition-colors"><Twitter size={20} /></a>
                         <a href="#" className="text-gray-400 hover:text-white transition-colors"><Github size={20} /></a>
                     </div>
+                </div>
+
+                {/* Quick Links */}
+                <div>
+                    <h4 className="text-white font-semibold mb-4">Quick Links</h4>
+                    <ul className="space-y-2 text-sm text-gray-400">
+                        <li><button className="hover:text-white transition-colors" onClick={() => onNavigate('landing')}>Home</button></li>
+                        <li><button className="hover:text-white transition-colors" onClick={() => onNavigate('about')}>About Us</button></li>
+                        <li><button className="hover:text-white transition-colors" onClick={() => onNavigate('contact')}>Contact</button></li>
+                        <li><button className="hover:text-white transition-colors">Privacy Policy</button></li>
+                        <li><button className="hover:text-white transition-colors">Terms of Service</button></li>
+                    </ul>
                 </div>
 
                 {/* Resources */}
