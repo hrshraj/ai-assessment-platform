@@ -13,6 +13,14 @@ public record TestResponseDto(
         String text,
         String type,
         List<String> options,
-        String starterCode
+        String starterCode,
+        // Coding question metadata (LeetCode-style)
+        String codingTitle,
+        String difficulty,
+        List<String> constraints,
+        List<String> hints,
+        List<String> languageOptions,
+        // Test cases as structured objects for coding
+        List<java.util.Map<String, Object>> testCases
     ) {}
 }

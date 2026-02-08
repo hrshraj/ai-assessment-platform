@@ -32,7 +32,11 @@ public class ProctorController {
 
         // 1. Validate the Submission exists
         Submission submission = submissionRepository.findById(String.valueOf(request.submissionId()))
-                .orElseThrow(() -> new RuntimeException("Invalid Submission ID"));
+                .orElse(null);
+        if (submission == null) {
+            System.out.println("WARN: Proctor log for unknown submission ID: " + request.submissionId());
+            return ResponseEntity.ok("Skipped - unknown submission");
+        }
 
         // 2. Build the Log
         ProctorLog log = ProctorLog.builder()
@@ -54,25 +58,34 @@ public class ProctorController {
 
     @PostMapping("/batch-log")
     public ResponseEntity<?> logBatch(@RequestBody List<ProctorRequest> requests) {
-        // Save all logs in one DB transaction - efficient!
-        List<ProctorLog> logs = requests.stream()
-                .map(request -> {
-                    Submission submission = submissionRepository.findById(String.valueOf(request.submissionId()))
-                            .orElseThrow(() -> new RuntimeException("Invalid Submission ID"));
-                    ProctorLog log = ProctorLog.builder()
-                            .submission(submission)
-                            .timestamp(LocalDateTime.now())
-                            .logType(request.logType())
-                            .build();
-                    if (request.logType() == ProctorLog.LogType.SNAPSHOT) {
-                        log.setSnapshotBase64(request.data());
-                    } else {
-                        log.setActivityLogJson(request.data());
-                    }
-                    return log;
-                })
-                .toList();
-        proctorLogRepository.saveAll(logs);
+        // Save all logs in one DB transaction - skip invalid submission IDs gracefully
+        List<ProctorLog> logs = new java.util.ArrayList<>();
+        for (ProctorRequest request : requests) {
+            try {
+                Submission submission = submissionRepository.findById(String.valueOf(request.submissionId()))
+                        .orElse(null);
+                if (submission == null) {
+                    System.out.println("WARN: Skipping proctor log for unknown submission ID: " + request.submissionId());
+                    continue;
+                }
+                ProctorLog log = ProctorLog.builder()
+                        .submission(submission)
+                        .timestamp(LocalDateTime.now())
+                        .logType(request.logType())
+                        .build();
+                if (request.logType() == ProctorLog.LogType.SNAPSHOT) {
+                    log.setSnapshotBase64(request.data());
+                } else {
+                    log.setActivityLogJson(request.data());
+                }
+                logs.add(log);
+            } catch (Exception e) {
+                System.out.println("WARN: Skipping proctor log entry due to error: " + e.getMessage());
+            }
+        }
+        if (!logs.isEmpty()) {
+            proctorLogRepository.saveAll(logs);
+        }
         return ResponseEntity.ok().build();
     }
 }

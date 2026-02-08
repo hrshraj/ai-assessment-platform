@@ -56,12 +56,60 @@ public class CandidateTestService {
                     // For coding questions, starterCode is stored in correctAnswer field
                     String starterCode = (q.getType() == Question.QuestionType.CODING)
                         ? q.getCorrectAnswer() : null;
+
+                    // Parse coding metadata from rubricJson for CODING questions
+                    String codingTitle = null;
+                    String difficulty = null;
+                    List<String> constraints = null;
+                    List<String> hints = null;
+                    List<String> languageOptions = null;
+                    List<Map<String, Object>> testCases = null;
+
+                    if (q.getType() == Question.QuestionType.CODING) {
+                        // Parse coding metadata
+                        if (q.getRubricJson() != null) {
+                            try {
+                                Map<String, Object> meta = objectMapper.readValue(q.getRubricJson(), new TypeReference<Map<String, Object>>(){});
+                                codingTitle = (String) meta.get("title");
+                                difficulty = (String) meta.get("difficulty");
+                                if (meta.get("constraints") instanceof List) {
+                                    constraints = ((List<?>) meta.get("constraints")).stream()
+                                            .map(Object::toString).collect(Collectors.toList());
+                                }
+                                if (meta.get("hints") instanceof List) {
+                                    hints = ((List<?>) meta.get("hints")).stream()
+                                            .map(Object::toString).collect(Collectors.toList());
+                                }
+                                if (meta.get("languageOptions") instanceof List) {
+                                    languageOptions = ((List<?>) meta.get("languageOptions")).stream()
+                                            .map(Object::toString).collect(Collectors.toList());
+                                }
+                            } catch (Exception e) {
+                                log.warn("Failed to parse coding metadata: {}", e.getMessage());
+                            }
+                        }
+                        // Parse test cases from optionsJson for coding questions
+                        if (q.getOptionsJson() != null) {
+                            try {
+                                testCases = objectMapper.readValue(q.getOptionsJson(), new TypeReference<List<Map<String, Object>>>(){});
+                            } catch (Exception e) {
+                                log.warn("Failed to parse test cases: {}", e.getMessage());
+                            }
+                        }
+                    }
+
                     return new TestResponseDto.QuestionDto(
                             String.valueOf(q.getId()),
                             q.getQuestionText(),
                             q.getType().name(),
                             options,
-                            starterCode
+                            starterCode,
+                            codingTitle,
+                            difficulty,
+                            constraints,
+                            hints,
+                            languageOptions,
+                            testCases
                     );
                 })
                 .collect(Collectors.toList());

@@ -130,6 +130,19 @@ public class AiIntegrationService {
                 if (q.starterCode() != null) {
                     question.setCorrectAnswer(q.starterCode());
                 }
+                // Store coding metadata (title, difficulty, constraints, hints, languages) in rubricJson
+                try {
+                    java.util.Map<String, Object> codingMeta = new java.util.LinkedHashMap<>();
+                    if (q.title() != null) codingMeta.put("title", q.title());
+                    if (q.difficulty() != null) codingMeta.put("difficulty", q.difficulty());
+                    if (q.constraints() != null) codingMeta.put("constraints", q.constraints());
+                    if (q.hints() != null) codingMeta.put("hints", q.hints());
+                    if (q.languageOptions() != null) codingMeta.put("languageOptions", q.languageOptions());
+                    if (q.questionType() != null) codingMeta.put("questionType", q.questionType());
+                    question.setRubricJson(objectMapper.writeValueAsString(codingMeta));
+                } catch (JsonProcessingException e) {
+                    System.out.println("WARN: Failed to serialize coding metadata: " + e.getMessage());
+                }
                 questions.add(question);
             });
         } else {

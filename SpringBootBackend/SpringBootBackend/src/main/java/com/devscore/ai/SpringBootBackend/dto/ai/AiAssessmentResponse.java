@@ -26,6 +26,9 @@ public record AiAssessmentResponse(
         @JsonProperty("starter_code") String starterCode,
         @JsonProperty("language_options") List<String> languageOptions,
         List<String> constraints,
+        List<String> hints,
+        String difficulty,
+        @JsonProperty("question_type") String questionType,
 
         // Rubric for subjective
         Map<String, Object> rubric,
