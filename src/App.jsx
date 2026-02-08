@@ -187,7 +187,7 @@ function App() {
         {view === 'candidate-browse' && (
           <PageWrapper key="candidate-browse">
             <JobBrowser onApply={(id) => {
-              setActiveAssessmentId(id || 'default-assessment-123'); // Fallback for mock data
+              setActiveAssessmentId(id);
               setView('assessment');
             }} />
             <Footer onNavigate={(page) => setView(page)} />

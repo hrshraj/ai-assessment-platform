@@ -1,5 +1,6 @@
 package com.devscore.ai.SpringBootBackend.controller;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -13,9 +14,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.devscore.ai.SpringBootBackend.dto.AssessmentListDto;
 import com.devscore.ai.SpringBootBackend.dto.SubmissionRequest;
 import com.devscore.ai.SpringBootBackend.dto.TestResponseDto;
+import com.devscore.ai.SpringBootBackend.entity.Assessment;
 import com.devscore.ai.SpringBootBackend.entity.User;
+import com.devscore.ai.SpringBootBackend.repository.AssessmentRepository;
 import com.devscore.ai.SpringBootBackend.repository.UserRepository;
 import com.devscore.ai.SpringBootBackend.service.CandidateTestService;
 
@@ -31,6 +35,26 @@ public class CandidateController {
 
     private final CandidateTestService testService;
     private final UserRepository userRepository;
+    private final AssessmentRepository assessmentRepository;
+
+    /**
+     * List all available assessments for candidates to browse.
+     */
+    @GetMapping("/assessments")
+    public ResponseEntity<List<AssessmentListDto>> getAvailableAssessments() {
+        List<Assessment> assessments = assessmentRepository.findAll();
+        List<AssessmentListDto> dtos = assessments.stream()
+                .map(a -> new AssessmentListDto(
+                        a.getId(),
+                        a.getTitle(),
+                        a.getDurationMinutes(),
+                        a.getCreatedAt(),
+                        a.getRecruiter().getCompanyName(),
+                        a.getQuestions() != null ? a.getQuestions().size() : 0
+                ))
+                .toList();
+        return ResponseEntity.ok(dtos);
+    }
 
     /**
      * Start Test: Fetches questions for the assessment.

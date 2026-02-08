@@ -1,5 +1,6 @@
-import React from 'react';
-import { Briefcase, MapPin, DollarSign, Clock, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Briefcase, Clock, ChevronRight, FileText, Building2, Loader2 } from 'lucide-react';
+import CandidateService from '../../services/CandidateService';
 
 const JobCard = ({ job, onApply }) => {
     return (
@@ -11,56 +12,89 @@ const JobCard = ({ job, onApply }) => {
                     </div>
                     <div>
                         <h3 className="text-white font-medium text-base">{job.title}</h3>
-                        <p className="text-gray-500 text-sm">{job.company}</p>
+                        <p className="text-gray-500 text-sm">{job.companyName || 'Company'}</p>
                     </div>
                 </div>
             </div>
 
             <div className="space-y-2 mb-4">
                 <div className="flex items-center text-gray-400 text-sm">
-                    <MapPin size={14} className="mr-2 text-gray-500" />
-                    {job.location}
-                </div>
-                <div className="flex items-center text-gray-400 text-sm">
-                    <DollarSign size={14} className="mr-2 text-gray-500" />
-                    {job.salary}
-                </div>
-                <div className="flex items-center text-gray-400 text-sm">
                     <Clock size={14} className="mr-2 text-gray-500" />
-                    {job.type}
+                    {job.durationMinutes} minutes
+                </div>
+                <div className="flex items-center text-gray-400 text-sm">
+                    <FileText size={14} className="mr-2 text-gray-500" />
+                    {job.questionCount} questions
+                </div>
+                <div className="flex items-center text-gray-400 text-sm">
+                    <Building2 size={14} className="mr-2 text-gray-500" />
+                    Posted {new Date(job.createdAt).toLocaleDateString()}
                 </div>
             </div>
 
             <button
                 onClick={onApply}
-                className="w-full py-2.5 rounded-lg bg-white text-black font-medium text-sm flex items-center justify-center"
+                className="w-full py-2.5 rounded-lg bg-white text-black font-medium text-sm flex items-center justify-center hover:bg-gray-100 transition-colors"
             >
-                Apply Now <ChevronRight size={16} className="ml-1" />
+                Start Assessment <ChevronRight size={16} className="ml-1" />
             </button>
         </div>
     );
 };
 
 const JobBrowser = ({ onApply }) => {
-    const jobs = [
-        { id: "react-sr-001", title: "Senior React Engineer", company: "TechCorp", location: "Remote", salary: "$120k - $180k", type: "Full-time" },
-        { id: "ai-ml-002", title: "AI/ML Developer", company: "DataLabs", location: "San Francisco, CA", salary: "$150k - $220k", type: "Full-time" },
-        { id: "fs-003", title: "Full Stack Developer", company: "WebSolutions", location: "New York, NY", salary: "$100k - $160k", type: "Full-time" },
-        { id: "devops-004", title: "DevOps Engineer", company: "CloudSystems", location: "Austin, TX", salary: "$110k - $170k", type: "Full-time" },
-        { id: "fe-005", title: "Frontend Developer", company: "DesignStudio", location: "Los Angeles, CA", salary: "$90k - $140k", type: "Full-time" },
-        { id: "be-006", title: "Backend Engineer", company: "ServerPro", location: "Seattle, WA", salary: "$120k - $180k", type: "Full-time" },
-    ];
+    const [assessments, setAssessments] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchAssessments = async () => {
+            try {
+                setLoading(true);
+                const data = await CandidateService.getAssessments();
+                setAssessments(data);
+            } catch (err) {
+                console.error('Error fetching assessments:', err);
+                setError('Failed to load assessments. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAssessments();
+    }, []);
 
     return (
         <div className="min-h-screen pt-24 px-8">
             <div className="mb-8">
-                <h2 className="text-3xl font-bold text-white mb-2">Job Opportunities</h2>
-                <p className="text-gray-400 text-sm">Browse available positions and apply</p>
+                <h2 className="text-3xl font-bold text-white mb-2">Available Assessments</h2>
+                <p className="text-gray-400 text-sm">Browse and start assessments created by recruiters</p>
             </div>
 
+            {loading && (
+                <div className="flex items-center justify-center py-20">
+                    <Loader2 className="text-purple-400 animate-spin mr-3" size={24} />
+                    <span className="text-gray-400">Loading assessments...</span>
+                </div>
+            )}
+
+            {error && (
+                <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-lg text-center">
+                    {error}
+                </div>
+            )}
+
+            {!loading && !error && assessments.length === 0 && (
+                <div className="text-center py-20">
+                    <FileText className="text-gray-600 mx-auto mb-4" size={48} />
+                    <h3 className="text-xl font-medium text-gray-400 mb-2">No assessments available</h3>
+                    <p className="text-gray-500 text-sm">Check back later for new assessments from recruiters.</p>
+                </div>
+            )}
+
             <div className="flex flex-wrap gap-4">
-                {jobs.map((job, idx) => (
-                    <JobCard key={idx} job={job} onApply={() => onApply(job.id)} />
+                {assessments.map((assessment) => (
+                    <JobCard key={assessment.id} job={assessment} onApply={() => onApply(assessment.id)} />
                 ))}
             </div>
         </div>

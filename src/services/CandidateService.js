@@ -4,8 +4,35 @@ const API_BASE_URL = 'https://ai-assessment-platform-1.onrender.com/api/candidat
 
 const CandidateService = {
     /**
+     * Get all available assessments for browsing
+     * @returns {Promise<Array>} List of AssessmentListDto
+     */
+    getAssessments: async () => {
+        const token = AuthService.getToken();
+        try {
+            const response = await fetch(`${API_BASE_URL}/assessments`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || `Failed to fetch assessments: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Get Assessments Error:', error);
+            throw error;
+        }
+    },
+
+    /**
      * Start an assessment
-     * @param {string} assessmentId 
+     * @param {string} assessmentId
      * @returns {Promise<Object>} TestResponseDto
      */
     startTest: async (assessmentId) => {
