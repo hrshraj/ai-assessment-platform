@@ -4,15 +4,33 @@ import DashboardOverview from './DashboardOverview';
 import CreateAssignmentModal from './CreateAssignmentModal';
 import Leaderboard from './Leaderboard';
 import CandidateProfile from './CandidateProfile';
+import RecruiterService from '../../services/RecruiterService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Menu, X, LayoutDashboard, Award, FileCheck, LogOut } from 'lucide-react';
 
 const DashboardLayout = ({ onLogout }) => {
     const [view, setView] = useState('dashboard'); // 'dashboard', 'create', 'results', 'profile'
     const [selectedCandidate, setSelectedCandidate] = useState(null);
-    const [selectedAssessmentId, setSelectedAssessmentId] = useState('1'); // Default/Latest assessment ID
+    const [selectedAssessmentId, setSelectedAssessmentId] = useState(null);
+    const [assessments, setAssessments] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    // Fetch recruiter's assessments on mount
+    useEffect(() => {
+        const fetchAssessments = async () => {
+            try {
+                const data = await RecruiterService.getAssessments();
+                setAssessments(data);
+                if (data.length > 0) {
+                    setSelectedAssessmentId(data[0].id);
+                }
+            } catch (err) {
+                console.error('Failed to load assessments:', err);
+            }
+        };
+        fetchAssessments();
+    }, []);
 
     // Handle browser back/forward navigation
     useEffect(() => {
@@ -58,10 +76,22 @@ const DashboardLayout = ({ onLogout }) => {
         setSelectedCandidate(null);
     };
 
+    const refreshAssessments = async () => {
+        try {
+            const data = await RecruiterService.getAssessments();
+            setAssessments(data);
+            if (data.length > 0 && !selectedAssessmentId) {
+                setSelectedAssessmentId(data[0].id);
+            }
+        } catch (err) {
+            console.error('Failed to refresh assessments:', err);
+        }
+    };
+
     const renderContent = () => {
         switch (view) {
             case 'dashboard':
-                return <DashboardOverview />;
+                return <DashboardOverview assessments={assessments} />;
             case 'create':
                 return (
                     <div className="flex flex-col items-center justify-center text-center space-y-4">
@@ -75,7 +105,25 @@ const DashboardLayout = ({ onLogout }) => {
                     </div>
                 );
             case 'results':
-                return <Leaderboard assessmentId={selectedAssessmentId} onSelectCandidate={(candidate) => { setSelectedCandidate(candidate); setView('profile'); }} />;
+                return (
+                    <div>
+                        {assessments.length > 1 && (
+                            <div className="mb-6 flex items-center space-x-4">
+                                <label className="text-gray-400 text-sm">Select Assessment:</label>
+                                <select
+                                    value={selectedAssessmentId || ''}
+                                    onChange={(e) => setSelectedAssessmentId(e.target.value)}
+                                    className="bg-black/60 border border-white/20 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
+                                >
+                                    {assessments.map((a) => (
+                                        <option key={a.id} value={a.id}>{a.title} ({a.questionCount} Q)</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        <Leaderboard assessmentId={selectedAssessmentId} onSelectCandidate={(candidate) => { setSelectedCandidate(candidate); setView('profile'); }} />
+                    </div>
+                );
             case 'profile':
                 return selectedCandidate ? <CandidateProfile candidate={selectedCandidate} onBack={() => setView('results')} /> : <Leaderboard assessmentId={selectedAssessmentId} onSelectCandidate={(candidate) => { setSelectedCandidate(candidate); setView('profile'); }} />;
             default:
@@ -191,7 +239,7 @@ const DashboardLayout = ({ onLogout }) => {
                 <Plus size={28} className="text-white group-hover:rotate-90 transition-transform duration-300" />
             </motion.button>
 
-            <CreateAssignmentModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+            <CreateAssignmentModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); refreshAssessments(); }} />
         </div>
     );
 };

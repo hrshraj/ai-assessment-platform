@@ -32,8 +32,60 @@ const RecruiterService = {
     },
 
     /**
+     * Get all assessments created by this recruiter
+     * @returns {Promise<Array>} List of assessments
+     */
+    getAssessments: async () => {
+        const token = AuthService.getToken();
+        try {
+            const response = await fetch(`${API_BASE_URL}/assessments`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch assessments: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Get Assessments Error:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get dashboard stats for recruiter
+     * @returns {Promise<Object>} Stats object
+     */
+    getDashboardStats: async () => {
+        const token = AuthService.getToken();
+        try {
+            const response = await fetch(`${API_BASE_URL}/dashboard-stats`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch stats: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Dashboard Stats Error:', error);
+            throw error;
+        }
+    },
+
+    /**
      * Get assessment leaderboard
-     * @param {string} assessmentId 
+     * @param {string} assessmentId
      * @returns {Promise<Array>} List<LeaderboardEntry>
      */
     getLeaderboard: async (assessmentId) => {

@@ -22,13 +22,20 @@ public class AiIntegrationService {
     @Value("${ai.service.url}")
     private String AI_SERVICE_URL;
 
-    public List<Question> generateQuestions(Assessment assessment) {
+    public List<Question> generateQuestions(Assessment assessment, int totalQuestionCount) {
         WebClient client = webClientBuilder.baseUrl(AI_SERVICE_URL).build();
 
-        // FIX: Stateless call. Send the Text directly.
+        // Distribute questions: ~60% MCQ, ~25% subjective, ~15% coding (minimum 1 each)
+        int mcqCount = Math.max(1, (int) Math.round(totalQuestionCount * 0.6));
+        int subjectiveCount = Math.max(1, (int) Math.round(totalQuestionCount * 0.25));
+        int codingCount = Math.max(1, totalQuestionCount - mcqCount - subjectiveCount);
+
+        System.out.println("=== Generating questions: total=" + totalQuestionCount +
+            " mcq=" + mcqCount + " subjective=" + subjectiveCount + " coding=" + codingCount);
+
         AssessmentGenerateRequest request = new AssessmentGenerateRequest(
             assessment.getJobDescriptionText(),
-            5, 2, 1 // Defaults
+            mcqCount, subjectiveCount, codingCount
         );
 
         AiAssessmentResponse response = client.post()
@@ -57,34 +64,30 @@ public class AiIntegrationService {
         }
     }
 
-    // ... (Keep mapResponseToEntities as is, it looked fine) ...
-     private List<Question> mapResponseToEntities(AiAssessmentResponse response, Assessment assessment) {
+    private List<Question> mapResponseToEntities(AiAssessmentResponse response, Assessment assessment) {
         List<Question> questions = new ArrayList<>();
+        ObjectMapper objectMapper = new ObjectMapper();
 
         // Map MCQs
-if (response.subjectiveQuestions() != null) {
-        response.subjectiveQuestions().forEach(q -> {
-            Question question = new Question();
-            question.setQuestionText(q.question());
-            question.setType(Question.QuestionType.SUBJECTIVE);
-            question.setAssessment(assessment);
-            
-            // CAPTURE THE DATA
-            try {
-                // Assuming 'q' has a 'rubric' map and 'expected_answer' list in the response DTO
-                // You might need to update AiAssessmentResponse.AiQuestion record to include these fields!
-                if (q.rubric() != null) {
-                     question.setRubricJson(new ObjectMapper().writeValueAsString(q.rubric()));
+        if (response.mcqQuestions() != null) {
+            response.mcqQuestions().forEach(q -> {
+                Question question = new Question();
+                question.setQuestionText(q.question());
+                question.setType(Question.QuestionType.MCQ);
+                question.setAssessment(assessment);
+                if (q.options() != null) {
+                    try {
+                        question.setOptionsJson(objectMapper.writeValueAsString(q.options()));
+                    } catch (JsonProcessingException e) {
+                        question.setOptionsJson(q.options().toString());
+                    }
                 }
-                if (q.expectedAnswerPoints() != null) {
-                     question.setExpectedAnswerJson(new ObjectMapper().writeValueAsString(q.expectedAnswerPoints()));
+                if (q.correctAnswer() != null) {
+                    question.setCorrectAnswer(q.correctAnswer());
                 }
-            } catch (JsonProcessingException e) {
-                // Log error
-            }
-            questions.add(question);
-        });
-    }
+                questions.add(question);
+            });
+        }
 
         // Map Subjective Questions
         if (response.subjectiveQuestions() != null) {
@@ -93,6 +96,16 @@ if (response.subjectiveQuestions() != null) {
                 question.setQuestionText(q.question());
                 question.setType(Question.QuestionType.SUBJECTIVE);
                 question.setAssessment(assessment);
+                try {
+                    if (q.rubric() != null) {
+                        question.setRubricJson(objectMapper.writeValueAsString(q.rubric()));
+                    }
+                    if (q.expectedAnswerPoints() != null) {
+                        question.setExpectedAnswerJson(objectMapper.writeValueAsString(q.expectedAnswerPoints()));
+                    }
+                } catch (JsonProcessingException e) {
+                    System.err.println("Error serializing rubric/expected answer: " + e.getMessage());
+                }
                 questions.add(question);
             });
         }

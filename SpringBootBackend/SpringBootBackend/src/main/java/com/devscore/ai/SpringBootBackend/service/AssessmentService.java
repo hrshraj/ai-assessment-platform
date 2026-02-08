@@ -39,7 +39,7 @@ public class AssessmentService {
         return assessmentRepository.save(assessment);
     }
 
-    public Assessment createAssessmentFromText(String jobDescription, User recruiter, String title) {
+    public Assessment createAssessmentFromText(String jobDescription, User recruiter, String title, int questionCount) {
 
         Assessment assessment = new Assessment();
         assessment.setTitle(title);
@@ -49,7 +49,7 @@ public class AssessmentService {
 
         assessment = assessmentRepository.save(assessment);
 
-        List<Question> questions = aiIntegrationService.generateQuestions(assessment);
+        List<Question> questions = aiIntegrationService.generateQuestions(assessment, questionCount);
         assessment.setQuestions(questions);
 
         return assessmentRepository.save(assessment);

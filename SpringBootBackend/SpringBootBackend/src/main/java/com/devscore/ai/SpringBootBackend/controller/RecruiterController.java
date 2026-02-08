@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.devscore.ai.SpringBootBackend.dto.LeaderboardEntry;
 import com.devscore.ai.SpringBootBackend.entity.Assessment;
 import com.devscore.ai.SpringBootBackend.entity.User;
+import com.devscore.ai.SpringBootBackend.repository.AssessmentRepository;
 import com.devscore.ai.SpringBootBackend.repository.UserRepository;
 import com.devscore.ai.SpringBootBackend.service.AnalyticsService;
 import com.devscore.ai.SpringBootBackend.service.AssessmentService;
@@ -31,6 +32,7 @@ public class RecruiterController {
 
     private final AssessmentService assessmentService;
     private final UserRepository userRepository;
+    private final AssessmentRepository assessmentRepository;
     private final AnalyticsService analyticsService;
 
     @PostMapping("/create-assessment")
@@ -67,7 +69,7 @@ public class RecruiterController {
 
     @PostMapping("/create-assessment-json")
     public ResponseEntity<?> createAssessmentJson(
-            @RequestBody Map<String, String> request,
+            @RequestBody Map<String, Object> request,
             Authentication authentication
     ) {
         System.out.println("=== CREATE ASSESSMENT JSON ENDPOINT HIT ===");
@@ -85,10 +87,14 @@ public class RecruiterController {
             return ResponseEntity.status(403).body("Only recruiters can create assessments");
         }
 
-        String jobDescription = request.get("jobDescription");
-        String title = request.getOrDefault("title", "Assessment - " + java.time.LocalDate.now());
+        String jobDescription = (String) request.get("jobDescription");
+        String title = (String) request.getOrDefault("title", "Assessment - " + java.time.LocalDate.now());
+        int questionCount = 8; // default
+        if (request.get("questionCount") != null) {
+            questionCount = ((Number) request.get("questionCount")).intValue();
+        }
 
-        Assessment assessment = assessmentService.createAssessmentFromText(jobDescription, recruiter, title);
+        Assessment assessment = assessmentService.createAssessmentFromText(jobDescription, recruiter, title, questionCount);
 
         return ResponseEntity.ok("Assessment created successfully! ID: " + assessment.getId());
     }
@@ -103,6 +109,51 @@ public class RecruiterController {
             return ResponseEntity.ok("Auth is null - no user authenticated");
         }
         return ResponseEntity.ok("Authenticated as: " + authentication.getName() + " authorities: " + authentication.getAuthorities());
+    }
+
+    @GetMapping("/assessments")
+    public ResponseEntity<?> getRecruiterAssessments(Authentication authentication) {
+        if (authentication == null) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
+        String email = authentication.getName();
+        User recruiter = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<Assessment> assessments = assessmentRepository.findByRecruiterOrderByCreatedAtDesc(recruiter);
+        List<Map<String, Object>> result = assessments.stream().map(a -> {
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            map.put("id", a.getId());
+            map.put("title", a.getTitle());
+            map.put("durationMinutes", a.getDurationMinutes());
+            map.put("createdAt", a.getCreatedAt());
+            map.put("questionCount", a.getQuestions() != null ? a.getQuestions().size() : 0);
+            return map;
+        }).toList();
+
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/dashboard-stats")
+    public ResponseEntity<?> getDashboardStats(Authentication authentication) {
+        if (authentication == null) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
+        String email = authentication.getName();
+        User recruiter = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<Assessment> assessments = assessmentRepository.findByRecruiterOrderByCreatedAtDesc(recruiter);
+        int totalAssessments = assessments.size();
+        int totalQuestions = assessments.stream()
+                .mapToInt(a -> a.getQuestions() != null ? a.getQuestions().size() : 0)
+                .sum();
+
+        Map<String, Object> stats = new java.util.LinkedHashMap<>();
+        stats.put("totalAssessments", totalAssessments);
+        stats.put("totalQuestions", totalQuestions);
+
+        return ResponseEntity.ok(stats);
     }
 
     @GetMapping("/assessment/{id}/leaderboard")
