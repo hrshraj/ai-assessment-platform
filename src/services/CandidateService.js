@@ -85,6 +85,33 @@ const CandidateService = {
             console.error('Submit Test Error:', error);
             throw error;
         }
+    },
+
+    /**
+     * Get candidate's submission history
+     * @returns {Promise<Array>} List of submissions with scores, status, feedback
+     */
+    getSubmissions: async () => {
+        const token = AuthService.getToken();
+        try {
+            const response = await fetch(`${API_BASE_URL}/submissions`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || `Failed to fetch submissions: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Get Submissions Error:', error);
+            throw error;
+        }
     }
 };
 

@@ -18,8 +18,10 @@ import com.devscore.ai.SpringBootBackend.dto.AssessmentListDto;
 import com.devscore.ai.SpringBootBackend.dto.SubmissionRequest;
 import com.devscore.ai.SpringBootBackend.dto.TestResponseDto;
 import com.devscore.ai.SpringBootBackend.entity.Assessment;
+import com.devscore.ai.SpringBootBackend.entity.Submission;
 import com.devscore.ai.SpringBootBackend.entity.User;
 import com.devscore.ai.SpringBootBackend.repository.AssessmentRepository;
+import com.devscore.ai.SpringBootBackend.repository.SubmissionRepository;
 import com.devscore.ai.SpringBootBackend.repository.UserRepository;
 import com.devscore.ai.SpringBootBackend.service.CandidateTestService;
 
@@ -36,6 +38,7 @@ public class CandidateController {
     private final CandidateTestService testService;
     private final UserRepository userRepository;
     private final AssessmentRepository assessmentRepository;
+    private final SubmissionRepository submissionRepository;
 
     /**
      * List all available assessments for candidates to browse.
@@ -94,6 +97,44 @@ public class CandidateController {
             log.error("Submission failed: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Submission failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get candidate's submission history with scores and status.
+     */
+    @GetMapping("/submissions")
+    public ResponseEntity<?> getMySubmissions(Authentication auth) {
+        try {
+            String email = auth.getName();
+            User candidate = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            List<Submission> submissions = submissionRepository.findByCandidateOrderBySubmittedAtDesc(candidate);
+
+            List<Map<String, Object>> result = submissions.stream().map(s -> {
+                Map<String, Object> map = new java.util.LinkedHashMap<>();
+                map.put("id", s.getId());
+                map.put("assessmentId", s.getAssessment() != null ? s.getAssessment().getId() : null);
+                map.put("assessmentTitle", s.getAssessment() != null ? s.getAssessment().getTitle() : "Unknown");
+                map.put("companyName", s.getAssessment() != null && s.getAssessment().getRecruiter() != null
+                        ? s.getAssessment().getRecruiter().getCompanyName() : "Unknown");
+                map.put("score", s.getScore());
+                map.put("integrityScore", s.getIntegrityScore());
+                map.put("aiFeedback", s.getAiFeedback());
+                map.put("skillScoresJson", s.getSkillScoresJson());
+                map.put("strengthsJson", s.getStrengthsJson());
+                map.put("weaknessesJson", s.getWeaknessesJson());
+                map.put("submittedAt", s.getSubmittedAt());
+                map.put("status", s.getScore() != null && s.getScore() > 0 ? "EVALUATED" : "SUBMITTED");
+                return map;
+            }).toList();
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Failed to fetch submissions: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch submissions"));
         }
     }
 }

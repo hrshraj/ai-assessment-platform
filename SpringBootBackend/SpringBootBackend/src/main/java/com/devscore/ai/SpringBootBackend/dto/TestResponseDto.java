@@ -12,6 +12,7 @@ public record TestResponseDto(
         String id,
         String text,
         String type,
-        List<String> options 
+        List<String> options,
+        String starterCode
     ) {}
 }

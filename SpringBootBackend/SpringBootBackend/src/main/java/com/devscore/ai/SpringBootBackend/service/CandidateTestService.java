@@ -53,11 +53,15 @@ public class CandidateTestService {
         List<TestResponseDto.QuestionDto> questionDtos = assessment.getQuestions().stream()
                 .map(q -> {
                     List<String> options = parseOptions(q.getOptionsJson());
+                    // For coding questions, starterCode is stored in correctAnswer field
+                    String starterCode = (q.getType() == Question.QuestionType.CODING)
+                        ? q.getCorrectAnswer() : null;
                     return new TestResponseDto.QuestionDto(
                             String.valueOf(q.getId()),
                             q.getQuestionText(),
                             q.getType().name(),
-                            options
+                            options,
+                            starterCode
                     );
                 })
                 .collect(Collectors.toList());
@@ -102,7 +106,11 @@ public class CandidateTestService {
 
         for (SubmissionRequest.AnswerDto answerDto : request.answers()) {
             Question question = questionRepository.findById(answerDto.questionId())
-                    .orElseThrow(() -> new RuntimeException("Question not found"));
+                    .orElse(null);
+            if (question == null) {
+                log.warn("Skipping answer for unknown question ID: {}", answerDto.questionId());
+                continue;
+            }
 
             // A. Entity
             SubmissionAnswer subAnswer = new SubmissionAnswer();
