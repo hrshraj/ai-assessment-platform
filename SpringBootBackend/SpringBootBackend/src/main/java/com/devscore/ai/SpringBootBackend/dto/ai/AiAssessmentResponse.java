@@ -6,7 +6,7 @@ import java.util.Map;
 
 public record AiAssessmentResponse(
     String id,
-    @JsonProperty("mcq_count") int mcqCount,
+    @JsonProperty("mcq_count") Integer mcqCount,
     @JsonProperty("mcq_questions") List<AiQuestion> mcqQuestions,
     @JsonProperty("subjective_questions") List<AiQuestion> subjectiveQuestions,
     @JsonProperty("coding_questions") List<AiQuestion> codingQuestions
