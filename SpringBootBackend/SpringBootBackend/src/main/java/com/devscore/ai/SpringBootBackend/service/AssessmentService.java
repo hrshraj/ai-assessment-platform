@@ -33,7 +33,7 @@ public class AssessmentService {
         assessment = assessmentRepository.save(assessment);
 
 
-        List<Question> questions = aiIntegrationService.generateQuestions(assessment);
+        List<Question> questions = aiIntegrationService.generateQuestions(assessment, 8); // default 8 for PDF uploads
         assessment.setQuestions(questions);
 
         return assessmentRepository.save(assessment);
