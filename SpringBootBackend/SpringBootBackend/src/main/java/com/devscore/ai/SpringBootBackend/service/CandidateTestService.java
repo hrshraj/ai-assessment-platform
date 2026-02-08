@@ -222,9 +222,23 @@ public class CandidateTestService {
     private List<String> parseOptions(String json) {
         if (json == null || json.isBlank()) return new ArrayList<>();
         try {
+            // First try parsing as List<String> (simple format)
             return objectMapper.readValue(json, new TypeReference<List<String>>() {});
         } catch (Exception e) {
-            return new ArrayList<>();
+            try {
+                // AI returns objects: [{"label": "A", "text": "...", "is_correct": false}]
+                List<Map<String, Object>> optionObjects = objectMapper.readValue(json, new TypeReference<List<Map<String, Object>>>() {});
+                return optionObjects.stream()
+                    .map(opt -> {
+                        String label = opt.get("label") != null ? opt.get("label").toString() : "";
+                        String text = opt.get("text") != null ? opt.get("text").toString() : "";
+                        return label.isEmpty() ? text : label + ". " + text;
+                    })
+                    .collect(Collectors.toList());
+            } catch (Exception e2) {
+                log.error("Failed to parse options JSON: {}", json, e2);
+                return new ArrayList<>();
+            }
         }
     }
 

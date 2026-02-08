@@ -51,6 +51,9 @@ public class ProctorLog {
         SNAPSHOT,
         ACTIVITY_DUMP,
         TAB_SWITCH,
-        FULL_SCREEN_EXIT
+        FULL_SCREEN_EXIT,
+        BLUR,
+        ANOMALY,
+        REPLAY
     }
 }
