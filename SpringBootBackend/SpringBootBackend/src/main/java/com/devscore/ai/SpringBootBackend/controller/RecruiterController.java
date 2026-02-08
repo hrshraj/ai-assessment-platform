@@ -6,6 +6,8 @@ import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,8 +19,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.devscore.ai.SpringBootBackend.dto.LeaderboardEntry;
 import com.devscore.ai.SpringBootBackend.entity.Assessment;
+import com.devscore.ai.SpringBootBackend.entity.Submission;
 import com.devscore.ai.SpringBootBackend.entity.User;
 import com.devscore.ai.SpringBootBackend.repository.AssessmentRepository;
+import com.devscore.ai.SpringBootBackend.repository.ProctorLogRepository;
+import com.devscore.ai.SpringBootBackend.repository.SubmissionRepository;
 import com.devscore.ai.SpringBootBackend.repository.UserRepository;
 import com.devscore.ai.SpringBootBackend.service.AnalyticsService;
 import com.devscore.ai.SpringBootBackend.service.AssessmentService;
@@ -33,6 +38,8 @@ public class RecruiterController {
     private final AssessmentService assessmentService;
     private final UserRepository userRepository;
     private final AssessmentRepository assessmentRepository;
+    private final SubmissionRepository submissionRepository;
+    private final ProctorLogRepository proctorLogRepository;
     private final AnalyticsService analyticsService;
 
     @PostMapping("/create-assessment")
@@ -154,6 +161,43 @@ public class RecruiterController {
         stats.put("totalQuestions", totalQuestions);
 
         return ResponseEntity.ok(stats);
+    }
+
+    @DeleteMapping("/assessment/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteAssessment(
+            @PathVariable String id,
+            Authentication authentication
+    ) {
+        if (authentication == null) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
+
+        String email = authentication.getName();
+        User recruiter = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Assessment assessment = assessmentRepository.findById(id).orElse(null);
+        if (assessment == null) {
+            return ResponseEntity.status(404).body("Assessment not found");
+        }
+
+        // Ensure only the owner can delete
+        if (!assessment.getRecruiter().getId().equals(recruiter.getId())) {
+            return ResponseEntity.status(403).body("You can only delete your own assessments");
+        }
+
+        // Delete related submissions (and their proctor logs + answers via cascade)
+        List<Submission> submissions = submissionRepository.findByAssessmentId(id);
+        for (Submission sub : submissions) {
+            proctorLogRepository.deleteBySubmissionId(sub.getId());
+        }
+        submissionRepository.deleteAll(submissions);
+
+        // Delete assessment (questions cascade automatically)
+        assessmentRepository.delete(assessment);
+
+        return ResponseEntity.ok("Assessment deleted successfully");
     }
 
     @GetMapping("/assessment/{id}/leaderboard")

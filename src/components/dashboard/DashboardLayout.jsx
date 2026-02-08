@@ -91,7 +91,7 @@ const DashboardLayout = ({ onLogout }) => {
     const renderContent = () => {
         switch (view) {
             case 'dashboard':
-                return <DashboardOverview assessments={assessments} />;
+                return <DashboardOverview assessments={assessments} onRefresh={refreshAssessments} />;
             case 'create':
                 return (
                     <div className="flex flex-col items-center justify-center text-center space-y-4">

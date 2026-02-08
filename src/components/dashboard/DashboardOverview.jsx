@@ -1,11 +1,28 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Users, FileCheck, Target, TrendingUp } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Users, FileCheck, Target, TrendingUp, Trash2 } from 'lucide-react';
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import StatCard from './StatCard';
 import ProgressRing from './ProgressRing';
+import RecruiterService from '../../services/RecruiterService';
 
-const DashboardOverview = ({ assessments = [] }) => {
+const DashboardOverview = ({ assessments = [], onRefresh }) => {
+    const [deletingId, setDeletingId] = useState(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+    const handleDelete = async (id) => {
+        setDeletingId(id);
+        try {
+            await RecruiterService.deleteAssessment(id);
+            setConfirmDeleteId(null);
+            if (onRefresh) onRefresh();
+        } catch (err) {
+            console.error('Failed to delete assessment:', err);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     const totalAssessments = assessments.length;
     const totalQuestions = assessments.reduce((sum, a) => sum + (a.questionCount || 0), 0);
 
@@ -176,9 +193,36 @@ const DashboardOverview = ({ assessments = [] }) => {
                                             </p>
                                         </div>
                                     </div>
-                                    <span className="text-[10px] font-mono text-gray-600 bg-white/5 px-2 py-1 rounded">
-                                        {a.id?.substring(0, 8)}...
-                                    </span>
+                                    <div className="flex items-center space-x-3">
+                                        <span className="text-[10px] font-mono text-gray-600 bg-white/5 px-2 py-1 rounded">
+                                            {a.id?.substring(0, 8)}...
+                                        </span>
+                                        {confirmDeleteId === a.id ? (
+                                            <div className="flex items-center space-x-2">
+                                                <button
+                                                    onClick={() => handleDelete(a.id)}
+                                                    disabled={deletingId === a.id}
+                                                    className="text-[10px] px-3 py-1.5 bg-red-500/20 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                                                >
+                                                    {deletingId === a.id ? 'Deleting...' : 'Confirm'}
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmDeleteId(null)}
+                                                    className="text-[10px] px-3 py-1.5 bg-white/5 border border-white/10 text-gray-400 rounded-lg hover:bg-white/10 transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setConfirmDeleteId(a.id)}
+                                                className="p-2 text-gray-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                title="Delete assessment"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </motion.div>
                             ))}
                         </div>

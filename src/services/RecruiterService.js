@@ -111,8 +111,36 @@ const RecruiterService = {
     },
 
     /**
+     * Delete an assessment
+     * @param {string} assessmentId
+     * @returns {Promise<string>} Success message
+     */
+    deleteAssessment: async (assessmentId) => {
+        const token = AuthService.getToken();
+        try {
+            const response = await fetch(`${API_BASE_URL}/assessment/${assessmentId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || `Delete failed with status: ${response.status}`);
+            }
+
+            return await response.text();
+        } catch (error) {
+            console.error('Delete Assessment Error:', error);
+            throw error;
+        }
+    },
+
+    /**
      * Get integrity report for a submission
-     * @param {string} submissionId 
+     * @param {string} submissionId
      * @returns {Promise<Object>} IntegrityReportDTO
      */
     getIntegrityReport: async (submissionId) => {
