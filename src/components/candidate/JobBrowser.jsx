@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Briefcase, Clock, ChevronRight, FileText, Building2, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Briefcase, Clock, ChevronRight, FileText, Building2, Loader2, RefreshCw } from 'lucide-react';
 import CandidateService from '../../services/CandidateService';
 
 const JobCard = ({ job, onApply }) => {
@@ -47,28 +47,39 @@ const JobBrowser = ({ onApply }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        const fetchAssessments = async () => {
-            try {
-                setLoading(true);
-                const data = await CandidateService.getAssessments();
-                setAssessments(data);
-            } catch (err) {
-                console.error('Error fetching assessments:', err);
-                setError('Failed to load assessments. Please try again.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchAssessments();
+    const fetchAssessments = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const data = await CandidateService.getAssessments();
+            setAssessments(data);
+        } catch (err) {
+            console.error('Error fetching assessments:', err);
+            setError('Failed to load assessments. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchAssessments();
+    }, [fetchAssessments]);
 
     return (
         <div className="min-h-screen pt-24 px-8">
-            <div className="mb-8">
-                <h2 className="text-3xl font-bold text-white mb-2">Available Assessments</h2>
-                <p className="text-gray-400 text-sm">Browse and start assessments created by recruiters</p>
+            <div className="mb-8 flex justify-between items-start">
+                <div>
+                    <h2 className="text-3xl font-bold text-white mb-2">Available Assessments</h2>
+                    <p className="text-gray-400 text-sm">Browse and start assessments created by recruiters</p>
+                </div>
+                <button
+                    onClick={fetchAssessments}
+                    disabled={loading}
+                    className="p-2.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+                    title="Refresh assessments"
+                >
+                    <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                </button>
             </div>
 
             {loading && (

@@ -28,7 +28,8 @@ const SubjectiveSession = ({ onComplete, questions }) => {
             setCurrentIndex(currentIndex + 1);
             setAnswer('');
         } else {
-            onComplete(answerObj);
+            // Send ALL collected subjective answers
+            onComplete({ allAnswers: updatedAnswers });
         }
     };
 

@@ -39,13 +39,13 @@ public class AssessmentService {
         return assessmentRepository.save(assessment);
     }
 
-    public Assessment createAssessmentFromText(String jobDescription, User recruiter, String title, int questionCount) {
+    public Assessment createAssessmentFromText(String jobDescription, User recruiter, String title, int questionCount, int durationMinutes) {
 
         Assessment assessment = new Assessment();
         assessment.setTitle(title);
         assessment.setJobDescriptionText(jobDescription);
         assessment.setRecruiter(recruiter);
-        assessment.setDurationMinutes(60);
+        assessment.setDurationMinutes(durationMinutes);
 
         assessment = assessmentRepository.save(assessment);
 

@@ -40,8 +40,8 @@ const MCQSession = ({ onComplete, questions }) => {
             setCurrentIndex(currentIndex + 1);
             setSelected(null);
         } else {
-            // All MCQs done — send last answer to trigger stage advance
-            onComplete(answer);
+            // All MCQs done — send ALL collected answers
+            onComplete({ allAnswers: updatedAnswers });
         }
     };
 

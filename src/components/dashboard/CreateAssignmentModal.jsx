@@ -102,10 +102,12 @@ const CreateAssignmentModal = ({ isOpen, onClose }) => {
         setStep(4);
         setError('');
         try {
+            const durationMinutes = parseInt(duration.replace('m', ''));
             const result = await RecruiterService.createAssessment({
                 jobDescription: jobDescription,
                 title: `Assessment - ${new Date().toLocaleDateString()}`,
-                questionCount: questionCount
+                questionCount: questionCount,
+                durationMinutes: durationMinutes
             });
             // Assuming result contains the ID in some format or we just use it
             const idMatch = result.match(/ID: (.*)/);

@@ -100,8 +100,12 @@ public class RecruiterController {
         if (request.get("questionCount") != null) {
             questionCount = ((Number) request.get("questionCount")).intValue();
         }
+        int durationMinutes = 60; // default
+        if (request.get("durationMinutes") != null) {
+            durationMinutes = ((Number) request.get("durationMinutes")).intValue();
+        }
 
-        Assessment assessment = assessmentService.createAssessmentFromText(jobDescription, recruiter, title, questionCount);
+        Assessment assessment = assessmentService.createAssessmentFromText(jobDescription, recruiter, title, questionCount, durationMinutes);
 
         return ResponseEntity.ok("Assessment created successfully! ID: " + assessment.getId());
     }

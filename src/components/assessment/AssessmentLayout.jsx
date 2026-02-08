@@ -69,6 +69,7 @@ const AssessmentLayout = ({ assessmentId }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [results, setResults] = useState([]);
+    const resultsRef = React.useRef([]);
 
     useEffect(() => {
         const loadTest = async () => {
@@ -95,15 +96,32 @@ const AssessmentLayout = ({ assessmentId }) => {
     };
 
     const nextStage = (stageResult) => {
-        // Collect result if provided as AnswerDto
+        // Collect result(s) - stageResult can be a single answer or contain allAnswers array
         if (stageResult) {
-            setResults(prev => {
-                const newAnswer = {
+            const newAnswers = [];
+
+            // If the session passed all collected answers
+            if (stageResult.allAnswers && Array.isArray(stageResult.allAnswers)) {
+                stageResult.allAnswers.forEach(ans => {
+                    newAnswers.push({
+                        questionId: ans.questionId || 'unknown',
+                        selectedOption: ans.selectedOption || null,
+                        codeAnswer: ans.codeAnswer || ans.answer || ans.code || null
+                    });
+                });
+            } else {
+                // Single answer
+                newAnswers.push({
                     questionId: stageResult.questionId || 'unknown',
                     selectedOption: stageResult.selectedOption || null,
                     codeAnswer: stageResult.codeAnswer || stageResult.answer || stageResult.code || null
-                };
-                return [...prev, newAnswer];
+                });
+            }
+
+            setResults(prev => {
+                const updated = [...prev, ...newAnswers];
+                resultsRef.current = updated;
+                return updated;
             });
         }
 
@@ -117,28 +135,34 @@ const AssessmentLayout = ({ assessmentId }) => {
         const next = flow[stage];
         setStage(next);
 
-        // If complete, trigger final submission
+        // If complete, trigger final submission with a small delay to ensure state is committed
         if (next === 'complete') {
-            handleSubmitAll();
+            setTimeout(() => handleSubmitAll(), 100);
         }
     };
 
     const handleSubmitAll = async () => {
         try {
             // Flush remaining proctoring logs
-            await proctorService.flushLogs(testData?.submissionId || assessmentId);
+            try {
+                await proctorService.flushLogs(testData?.submissionId || assessmentId);
+            } catch (e) {
+                console.warn('Proctor flush failed (non-critical):', e);
+            }
 
-            // Unify results into SubmissionRequest format
+            // Use ref for latest results to avoid stale closure
+            const allAnswers = resultsRef.current;
+            console.log('=== Submitting assessment with', allAnswers.length, 'answers:', allAnswers);
+
             const submissionData = {
                 assessmentId,
-                answers: results
+                answers: allAnswers
             };
 
-            await CandidateService.submitTest(submissionData);
-            console.log('Final assessment submitted successfully:', submissionData);
+            const response = await CandidateService.submitTest(submissionData);
+            console.log('Final assessment submitted successfully:', response);
         } catch (err) {
             console.error('Error submitting assessment:', err);
-            // Optionally show error to user
         }
     };
 

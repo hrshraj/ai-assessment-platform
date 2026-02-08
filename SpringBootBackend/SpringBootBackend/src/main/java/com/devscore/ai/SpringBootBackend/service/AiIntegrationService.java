@@ -72,7 +72,7 @@ public class AiIntegrationService {
         if (response.mcqQuestions() != null) {
             response.mcqQuestions().forEach(q -> {
                 Question question = new Question();
-                question.setQuestionText(q.question());
+                question.setQuestionText(q.getQuestionText());
                 question.setType(Question.QuestionType.MCQ);
                 question.setAssessment(assessment);
                 if (q.options() != null) {
@@ -93,7 +93,7 @@ public class AiIntegrationService {
         if (response.subjectiveQuestions() != null) {
             response.subjectiveQuestions().forEach(q -> {
                 Question question = new Question();
-                question.setQuestionText(q.question());
+                question.setQuestionText(q.getQuestionText());
                 question.setType(Question.QuestionType.SUBJECTIVE);
                 question.setAssessment(assessment);
                 try {
@@ -110,16 +110,30 @@ public class AiIntegrationService {
             });
         }
 
-        // Map Coding
+        // Map Coding Questions
         if (response.codingQuestions() != null) {
+            System.out.println("=== Mapping " + response.codingQuestions().size() + " coding questions");
             response.codingQuestions().forEach(q -> {
                 Question question = new Question();
-                question.setQuestionText(q.question()); // In Python this might be 'problem_statement'
+                question.setQuestionText(q.getQuestionText());
                 question.setType(Question.QuestionType.CODING);
-                question.setOptionsJson(q.testCases().toString()); // Store test cases in optionsJson
                 question.setAssessment(assessment);
+                // Store test cases as JSON in optionsJson
+                if (q.testCases() != null) {
+                    try {
+                        question.setOptionsJson(objectMapper.writeValueAsString(q.testCases()));
+                    } catch (JsonProcessingException e) {
+                        question.setOptionsJson(q.testCases().toString());
+                    }
+                }
+                // Store starter code in correctAnswer field (reuse)
+                if (q.starterCode() != null) {
+                    question.setCorrectAnswer(q.starterCode());
+                }
                 questions.add(question);
             });
+        } else {
+            System.out.println("=== WARNING: No coding questions in AI response");
         }
 
         return questions;
