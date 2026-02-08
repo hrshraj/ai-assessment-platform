@@ -93,6 +93,18 @@ public class RecruiterController {
         return ResponseEntity.ok("Assessment created successfully! ID: " + assessment.getId());
     }
 
+    @PostMapping("/test-auth")
+    public ResponseEntity<?> testAuth(
+            @RequestBody Map<String, String> request,
+            Authentication authentication
+    ) {
+        System.out.println("=== TEST AUTH HIT === auth=" + authentication);
+        if (authentication == null) {
+            return ResponseEntity.ok("Auth is null - no user authenticated");
+        }
+        return ResponseEntity.ok("Authenticated as: " + authentication.getName() + " authorities: " + authentication.getAuthorities());
+    }
+
     @GetMapping("/assessment/{id}/leaderboard")
     @PreAuthorize("hasRole('RECRUITER')")
     public ResponseEntity<List<LeaderboardEntry>> getAssessmentLeaderboard(@PathVariable String id) {

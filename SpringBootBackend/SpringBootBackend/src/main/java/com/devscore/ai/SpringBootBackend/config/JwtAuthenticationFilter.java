@@ -36,24 +36,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = null;
             String email = null;
 
+            System.out.println("=== JWT FILTER === Path: " + request.getRequestURI() + " Method: " + request.getMethod());
+
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
                 token = authHeader.substring(7); // Remove "Bearer " prefix
-                email = jwtUtils.getUserNameFromJwtToken(token);
+                try {
+                    email = jwtUtils.getUserNameFromJwtToken(token);
+                    System.out.println("=== JWT FILTER === Email extracted: " + email);
+                } catch (Exception ex) {
+                    System.err.println("=== JWT FILTER === Token parse error: " + ex.getMessage());
+                }
             }
 
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 if (jwtUtils.validateJwtToken(token)) {
                     UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+                    System.out.println("=== JWT FILTER === User loaded, authorities: " + userDetails.getAuthorities());
 
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities());
 
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    System.out.println("=== JWT FILTER === Authentication SET successfully");
+                } else {
+                    System.err.println("=== JWT FILTER === Token validation FAILED");
                 }
             }
         } catch (Exception e) {
-            System.err.println("JWT Filter Error: " + e.getMessage());
+            System.err.println("=== JWT FILTER ERROR === " + e.getClass().getName() + ": " + e.getMessage());
+            e.printStackTrace();
         }
 
         filterChain.doFilter(request, response);
