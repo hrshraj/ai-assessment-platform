@@ -7,16 +7,16 @@ const RecruiterService = {
      * Create assessment via AiRequest DTO
      * @param {Object} aiRequest - Contains 'jobDescription' and 'questionCount'
      */
-    createAssessment: async (formData) => {
+    createAssessment: async (data) => {
         const token = AuthService.getToken();
         try {
-            const response = await fetch(`${API_BASE_URL}/create-assessment`, {
+            const response = await fetch(`${API_BASE_URL}/create-assessment-json`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    // Content-Type is set automatically for FormData
+                    'Content-Type': 'application/json',
                 },
-                body: formData
+                body: JSON.stringify(data)
             });
 
             if (!response.ok) {

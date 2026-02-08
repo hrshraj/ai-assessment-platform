@@ -29,9 +29,25 @@ public class AssessmentService {
         assessment.setJobDescriptionText(extractedText);
         assessment.setRecruiter(recruiter);
         assessment.setDurationMinutes(60);
-        
+
         assessment = assessmentRepository.save(assessment);
 
+
+        List<Question> questions = aiIntegrationService.generateQuestions(assessment);
+        assessment.setQuestions(questions);
+
+        return assessmentRepository.save(assessment);
+    }
+
+    public Assessment createAssessmentFromText(String jobDescription, User recruiter, String title) {
+
+        Assessment assessment = new Assessment();
+        assessment.setTitle(title);
+        assessment.setJobDescriptionText(jobDescription);
+        assessment.setRecruiter(recruiter);
+        assessment.setDurationMinutes(60);
+
+        assessment = assessmentRepository.save(assessment);
 
         List<Question> questions = aiIntegrationService.generateQuestions(assessment);
         assessment.setQuestions(questions);

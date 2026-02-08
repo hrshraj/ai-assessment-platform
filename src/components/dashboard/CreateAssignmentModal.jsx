@@ -102,19 +102,10 @@ const CreateAssignmentModal = ({ isOpen, onClose }) => {
         setStep(4);
         setError('');
         try {
-            const formData = new FormData();
-            // Backend expects 'file' and 'title'
-            // Embed question count in the content for valid AI context
-            const content = `[REQUIREMENT] Generate ${questionCount} questions.\n\n[JOB DESCRIPTION]\n${jobDescription}`;
-            const blob = new Blob([content], { type: 'text/plain' });
-
-            formData.append('file', blob, 'job_description.txt');
-            formData.append('title', `Assessment - ${new Date().toLocaleDateString()}`);
-
-            // Note: detailed params like questionCount might be inside the file content or ignored based on backend
-            // If backend supports AiRequest JSON inside a part, we'd add it differently, but controller shows @RequestParam file/title.
-
-            const result = await RecruiterService.createAssessment(formData);
+            const result = await RecruiterService.createAssessment({
+                jobDescription: `[REQUIREMENT] Generate ${questionCount} questions.\n\n[JOB DESCRIPTION]\n${jobDescription}`,
+                title: `Assessment - ${new Date().toLocaleDateString()}`
+            });
             // Assuming result contains the ID in some format or we just use it
             const idMatch = result.match(/ID: (.*)/);
             const assessmentId = idMatch ? idMatch[1] : Math.random().toString(36).substr(2, 9);

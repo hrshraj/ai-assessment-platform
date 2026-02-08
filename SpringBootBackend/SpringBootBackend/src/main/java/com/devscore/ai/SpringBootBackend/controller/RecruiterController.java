@@ -1,6 +1,7 @@
 package com.devscore.ai.SpringBootBackend.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -8,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -59,6 +61,34 @@ public class RecruiterController {
         }
 
         Assessment assessment = assessmentService.createAssessmentFromPdf(file, recruiter, title);
+
+        return ResponseEntity.ok("Assessment created successfully! ID: " + assessment.getId());
+    }
+
+    @PostMapping("/create-assessment-json")
+    public ResponseEntity<?> createAssessmentJson(
+            @RequestBody Map<String, String> request,
+            Authentication authentication
+    ) {
+        System.out.println("=== CREATE ASSESSMENT JSON ENDPOINT HIT ===");
+        System.out.println("Authentication: " + authentication);
+
+        if (authentication == null) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
+
+        String email = authentication.getName();
+        User recruiter = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (recruiter.getRole() != com.devscore.ai.SpringBootBackend.entity.Role.RECRUITER) {
+            return ResponseEntity.status(403).body("Only recruiters can create assessments");
+        }
+
+        String jobDescription = request.get("jobDescription");
+        String title = request.getOrDefault("title", "Assessment - " + java.time.LocalDate.now());
+
+        Assessment assessment = assessmentService.createAssessmentFromText(jobDescription, recruiter, title);
 
         return ResponseEntity.ok("Assessment created successfully! ID: " + assessment.getId());
     }
